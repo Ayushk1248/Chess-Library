@@ -11,10 +11,13 @@ import {
   LogOut,
   RefreshCw,
   Save,
+  ChevronLeft,
   ChevronRight,
   Palette,
   GitBranch,
   Undo2,
+  Trash2,
+  X,
 } from "lucide-react";
 import { useTheme } from "@/lib/theme-context";
 import { supabaseBrowser } from "@/lib/supabase/client";
@@ -84,6 +87,9 @@ export default function DashboardPage() {
   const [isLoadingOpenings, setIsLoadingOpenings] = useState(true);
   const [openingListError, setOpeningListError] = useState("");
   const [loadingOpeningId, setLoadingOpeningId] = useState<string | null>(null);
+  const [confirmingDeleteId, setConfirmingDeleteId] = useState<string | null>(null);
+  const [deletingOpeningId, setDeletingOpeningId] = useState<string | null>(null);
+  const [deleteOpeningError, setDeleteOpeningError] = useState("");
   const [activeOpening, setActiveOpening] = useState("");
   const [activeOpeningId, setActiveOpeningId] = useState<string | null>(null);
   const [openingName, setOpeningName] = useState("");
@@ -101,6 +107,7 @@ export default function DashboardPage() {
   const [isChoosingVariation, setIsChoosingVariation] = useState(false);
   const [isSavingLine, setIsSavingLine] = useState(false);
   const [lineError, setLineError] = useState("");
+  const [viewedMoveCount, setViewedMoveCount] = useState<number | null>(null);
 
   useEffect(() => {
     let isMounted = true;
@@ -148,10 +155,12 @@ export default function DashboardPage() {
   const sanMoves = currentPathNodes.map((node) => node.move_san);
   const pendingNodeCount = sessionNodes.filter((node) => !node.isSaved).length;
   const lastPathNode = currentPathNodes.at(-1);
+  const visibleMoveCount = viewedMoveCount ?? sanMoves.length;
+  const isViewingHistory = viewedMoveCount !== null;
 
   const onPieceDrop = useCallback(
     ({ sourceSquare, targetSquare }: { sourceSquare: string; targetSquare: string | null }) => {
-      if (!targetSquare || isChoosingVariation) return false;
+      if (!targetSquare || isChoosingVariation || viewedMoveCount !== null) return false;
       try {
         const move = game.move({ from: sourceSquare, to: targetSquare, promotion: "q" });
         if (move === null) return false;
@@ -167,14 +176,38 @@ export default function DashboardPage() {
         setSessionNodes((nodes) => [...nodes, node]);
         setCurrentPath((path) => [...path, node.id]);
         setPosition(game.fen());
+        setViewedMoveCount(null);
         setLineError("");
         return true;
       } catch {
         return false;
       }
     },
-    [currentPath, game, isChoosingVariation, isVariationLine]
+    [currentPath, game, isChoosingVariation, isVariationLine, viewedMoveCount]
   );
+
+  function handleNavigateMove(step: number) {
+    const nextMoveCount = Math.max(
+      0,
+      Math.min(sanMoves.length, visibleMoveCount + step)
+    );
+    const replayGame = new Chess();
+
+    try {
+      for (const node of currentPathNodes.slice(0, nextMoveCount)) {
+        const move = replayGame.move(node.move_san);
+        if (!move || replayGame.fen() !== node.fen_after) {
+          throw new Error(`Could not replay saved move ${node.move_san}.`);
+        }
+      }
+
+      setPosition(replayGame.fen());
+      setViewedMoveCount(nextMoveCount === sanMoves.length ? null : nextMoveCount);
+      setLineError("");
+    } catch (error) {
+      setLineError(error instanceof Error ? error.message : "Could not navigate this line.");
+    }
+  }
 
   function handleSelectVariationPoint(moveIndex: number | null) {
     const selectedPath = moveIndex === null ? [] : currentPath.slice(0, moveIndex + 1);
@@ -187,6 +220,7 @@ export default function DashboardPage() {
 
     setCurrentPath(selectedPath);
     setPosition(game.fen());
+    setViewedMoveCount(null);
     setIsVariationLine(true);
     setIsChoosingVariation(false);
     setLineError("");
@@ -212,6 +246,7 @@ export default function DashboardPage() {
     setSessionNodes((nodes) => nodes.filter((node) => !removedIds.has(node.id)));
     setCurrentPath(nextPath);
     setPosition(game.fen());
+    setViewedMoveCount(null);
     setIsChoosingVariation(false);
     setLineError("");
   }
@@ -283,6 +318,7 @@ export default function DashboardPage() {
       setPosition(game.fen());
       setSessionNodes([]);
       setCurrentPath([]);
+      setViewedMoveCount(null);
       setIsVariationLine(false);
       setIsChoosingVariation(false);
       setLineError("");
@@ -351,6 +387,7 @@ export default function DashboardPage() {
       setPosition(game.fen());
       setSessionNodes(savedNodes);
       setCurrentPath(mainline.map((node) => node.id));
+      setViewedMoveCount(null);
       setIsVariationLine(false);
       setIsChoosingVariation(false);
       setActiveOpening(opening.name);
@@ -363,6 +400,50 @@ export default function DashboardPage() {
     }
   }
 
+  async function handleDeleteOpening(opening: Opening) {
+    if (!supabaseBrowser) {
+      setDeleteOpeningError("Supabase is not configured.");
+      return;
+    }
+
+    setDeletingOpeningId(opening.id);
+    setDeleteOpeningError("");
+
+    try {
+      const { error } = await supabaseBrowser
+        .from("openings")
+        .delete()
+        .eq("id", opening.id)
+        .select("id")
+        .single();
+
+      if (error) throw error;
+
+      setOpenings((current) => current.filter((item) => item.id !== opening.id));
+      setConfirmingDeleteId(null);
+
+      if (activeOpeningId === opening.id) {
+        game.reset();
+        setPosition(game.fen());
+        setSessionNodes([]);
+        setCurrentPath([]);
+        setViewedMoveCount(null);
+        setIsVariationLine(false);
+        setIsChoosingVariation(false);
+        setActiveOpening("");
+        setActiveOpeningId(null);
+        setOpeningName("");
+        setLineError("");
+      }
+    } catch (error) {
+      setDeleteOpeningError(
+        error instanceof Error ? error.message : "Could not delete this opening."
+      );
+    } finally {
+      setDeletingOpeningId(null);
+    }
+  }
+
   const handleFlipBoard = () => {
     setOrientation((prev) => (prev === "white" ? "black" : "white"));
   };
@@ -372,6 +453,7 @@ export default function DashboardPage() {
   const chessboardOptions = {
     position,
     onPieceDrop,
+    allowDragging: !isViewingHistory,
     boardOrientation: orientation,
     darkSquareStyle: { backgroundColor: colors.boardDark },
     lightSquareStyle: { backgroundColor: colors.boardLight },
@@ -422,28 +504,74 @@ export default function DashboardPage() {
               openings.map((opening) => {
                 const isActive = opening.id === activeOpeningId;
                 return (
-                  <button
+                  <div
                     key={opening.id}
-                    onClick={() => handleLoadOpening(opening)}
-                    disabled={loadingOpeningId !== null}
-                    className={`group flex items-center justify-between rounded-md px-2.5 py-2 text-left text-sm transition-colors disabled:cursor-wait disabled:opacity-60 ${
-                      isActive ? "bg-white/5 text-white" : "text-zinc-400 hover:bg-white/5 hover:text-white"
+                    className={`group flex items-center gap-1 rounded-md ${
+                      isActive ? "bg-white/5" : ""
                     }`}
                   >
-                    <span className="truncate">
-                      {loadingOpeningId === opening.id ? "Loading..." : opening.name}
-                    </span>
-                    <ChevronRight
-                      size={14}
-                      className={`shrink-0 opacity-0 transition-opacity group-hover:opacity-100 ${
-                        isActive ? "opacity-60" : ""
+                    <button
+                      onClick={() => handleLoadOpening(opening)}
+                      disabled={loadingOpeningId !== null || deletingOpeningId !== null}
+                      className={`flex min-w-0 flex-1 items-center justify-between rounded-md px-2.5 py-2 text-left text-sm transition-colors disabled:cursor-wait disabled:opacity-60 ${
+                        isActive ? "text-white" : "text-zinc-400 hover:text-white"
                       }`}
-                    />
-                  </button>
+                    >
+                      <span className="truncate">
+                        {loadingOpeningId === opening.id ? "Loading..." : opening.name}
+                      </span>
+                      <ChevronRight
+                        size={14}
+                        className={`shrink-0 opacity-0 transition-opacity group-hover:opacity-100 ${
+                          isActive ? "opacity-60" : ""
+                        }`}
+                      />
+                    </button>
+                    {confirmingDeleteId === opening.id ? (
+                      <div className="flex shrink-0 items-center gap-1 pr-1">
+                        <button
+                          type="button"
+                          onClick={() => handleDeleteOpening(opening)}
+                          disabled={deletingOpeningId !== null}
+                          className="rounded px-1.5 py-1 text-xs font-medium text-red-400 transition-colors hover:bg-red-500/10 disabled:opacity-50"
+                        >
+                          {deletingOpeningId === opening.id ? "Deleting..." : "Delete"}
+                        </button>
+                        <button
+                          type="button"
+                          onClick={() => setConfirmingDeleteId(null)}
+                          disabled={deletingOpeningId !== null}
+                          aria-label={`Cancel deleting ${opening.name}`}
+                          className="rounded p-1 text-zinc-400 transition-colors hover:bg-white/10 hover:text-white disabled:opacity-50"
+                        >
+                          <X size={14} />
+                        </button>
+                      </div>
+                    ) : (
+                      <button
+                        type="button"
+                        onClick={() => {
+                          setDeleteOpeningError("");
+                          setConfirmingDeleteId(opening.id);
+                        }}
+                        disabled={loadingOpeningId !== null || deletingOpeningId !== null}
+                        aria-label={`Delete ${opening.name}`}
+                        title={`Delete ${opening.name}`}
+                        className="mr-1 shrink-0 rounded p-1 text-zinc-500 opacity-0 transition-colors hover:bg-red-500/10 hover:text-red-400 focus:opacity-100 group-hover:opacity-100 disabled:cursor-not-allowed"
+                      >
+                        <Trash2 size={14} />
+                      </button>
+                    )}
+                  </div>
                 );
               })
             )}
           </nav>
+          {deleteOpeningError && (
+            <p role="alert" className="px-2 py-2 text-sm text-red-400">
+              {deleteOpeningError}
+            </p>
+          )}
         </div>
 
         <div className="border-t border-white/5 p-3">
@@ -479,7 +607,7 @@ export default function DashboardPage() {
           <div className="flex items-center gap-2">
             <button
               onClick={handleCancelMove}
-              disabled={!lastPathNode || lastPathNode.isSaved || isChoosingVariation}
+              disabled={!lastPathNode || lastPathNode.isSaved || isChoosingVariation || isViewingHistory}
               className="flex items-center gap-2 rounded-lg border border-white/10 px-3.5 py-2 text-sm text-zinc-300 transition-colors hover:bg-white/5 hover:text-white disabled:cursor-not-allowed disabled:opacity-40"
               title="Undo the last unsaved move"
             >
@@ -539,7 +667,34 @@ export default function DashboardPage() {
             style={{ backgroundColor: colors.sidebarBg }}
           >
             <div className="border-b border-white/5 px-4 py-3">
-              <p className="text-sm font-medium text-white">Move History</p>
+              <div className="flex items-center justify-between">
+                <p className="text-sm font-medium text-white">Move History</p>
+                <div className="flex items-center gap-1">
+                  <button
+                    type="button"
+                    onClick={() => handleNavigateMove(-1)}
+                    disabled={visibleMoveCount === 0}
+                    aria-label="Previous move"
+                    title="Previous move"
+                    className="rounded p-1 text-zinc-400 transition-colors hover:bg-white/10 hover:text-white disabled:cursor-not-allowed disabled:opacity-40"
+                  >
+                    <ChevronLeft size={16} />
+                  </button>
+                  <span className="min-w-10 text-center text-xs tabular-nums text-zinc-500">
+                    {visibleMoveCount}/{sanMoves.length}
+                  </span>
+                  <button
+                    type="button"
+                    onClick={() => handleNavigateMove(1)}
+                    disabled={visibleMoveCount === sanMoves.length}
+                    aria-label="Next move"
+                    title="Next move"
+                    className="rounded p-1 text-zinc-400 transition-colors hover:bg-white/10 hover:text-white disabled:cursor-not-allowed disabled:opacity-40"
+                  >
+                    <ChevronRight size={16} />
+                  </button>
+                </div>
+              </div>
             </div>
             <div className="flex-1 overflow-y-auto px-2 py-2">
               {lineError && (
