@@ -1,10 +1,9 @@
+// app/page.tsx
 import Image from "next/image"
 import Link from "next/link"
 import {
   Crown,
   Play,
-  Star,
-  Users,
   Library,
   Cpu,
   CloudUpload,
@@ -55,8 +54,6 @@ const features = [
 export default function Page() {
   return (
     <div className="min-h-screen bg-[#21201d] text-zinc-100 antialiased selection:bg-[#81b64c]/30">
-      
-      {/* Very subtle background texture, no cheap neon glows */}
       <div className="pointer-events-none fixed inset-0 overflow-hidden">
         <div className="absolute inset-0 bg-[radial-gradient(circle_at_top,rgba(255,255,255,0.03)_0%,rgba(0,0,0,0.4)_100%)]" />
       </div>
@@ -65,7 +62,6 @@ export default function Page() {
         {/* ============ NAVIGATION ============ */}
         <header className="mx-auto flex max-w-7xl items-center justify-between px-6 py-5 lg:px-8">
           <Link href="/" className="flex items-center gap-3">
-            {/* Clean, flat logo - no glowing shadows */}
             <span className="flex h-8 w-8 items-center justify-center rounded bg-[#81b64c] text-white">
               <Crown className="h-5 w-5" />
             </span>
@@ -87,15 +83,14 @@ export default function Page() {
           </nav>
 
           <div className="flex items-center gap-2 sm:gap-4">
-            <Link 
-              href="/login" 
+            <Link
+              href="/login"
               className="rounded-lg px-4 py-2 text-sm font-semibold text-zinc-300 transition-colors hover:bg-white/5 hover:text-white"
             >
               Log In
             </Link>
-            {/* Flat, solid button matching the classic chess aesthetic */}
-            <Link 
-              href="/signup" 
+            <Link
+              href="/signup"
               className="rounded-lg bg-[#81b64c] px-5 py-2.5 text-sm font-bold text-white transition-colors hover:bg-[#8bc255]"
             >
               Sign Up
@@ -105,18 +100,15 @@ export default function Page() {
 
         {/* ============ HERO ============ */}
         <section className="mx-auto grid max-w-7xl grid-cols-1 items-center gap-16 px-6 pb-24 pt-12 lg:grid-cols-2 lg:gap-10 lg:px-8 lg:pt-20">
-          {/* Left: text */}
           <div className="max-w-xl">
             <span className="inline-flex items-center gap-2 rounded-full bg-white/5 px-3 py-1 text-xs font-semibold text-zinc-300">
               <span className="h-2 w-2 rounded-full bg-[#81b64c]" />
-              Your personal opening lab
+              Opening repertoire manager
             </span>
 
             <h1 className="mt-6 text-balance text-4xl font-extrabold leading-[1.1] tracking-tight text-white sm:text-5xl lg:text-6xl">
-              Master your repertoire with a tool built{" "}
-              <span className="text-[#81b64c]">
-                just for you.
-              </span>
+              Build, study, and drill your{" "}
+              <span className="text-[#81b64c]">chess openings.</span>
             </h1>
 
             <p className="mt-6 text-pretty text-lg leading-relaxed text-zinc-400">
@@ -126,8 +118,8 @@ export default function Page() {
             </p>
 
             <div className="mt-8 flex flex-col gap-3 sm:flex-row">
-              <Link 
-                href="/signup" 
+              <Link
+                href="/signup"
                 className="inline-flex items-center justify-center rounded-xl bg-[#81b64c] px-8 py-3.5 text-base font-bold text-white transition-colors hover:bg-[#8bc255]"
               >
                 Start Building Free
@@ -137,23 +129,6 @@ export default function Page() {
                 See the board
               </button>
             </div>
-
-            {/* Social proof */}
-            <div className="mt-10 flex items-center gap-8">
-              <div className="flex items-center gap-2">
-                <Users className="h-5 w-5 text-zinc-500" />
-                <span className="text-sm text-zinc-400">
-                  <span className="font-bold text-white">50k+</span> players
-                </span>
-              </div>
-              <div className="h-6 w-px bg-white/10" />
-              <div className="flex items-center gap-2">
-                <Star className="h-5 w-5 text-[#81b64c]" fill="currentColor" />
-                <span className="text-sm text-zinc-400">
-                  <span className="font-bold text-white">4.9/5</span> rating
-                </span>
-              </div>
-            </div>
           </div>
 
           {/* Right: visual */}
@@ -162,7 +137,7 @@ export default function Page() {
               <div className="relative overflow-hidden rounded-xl border border-white/5 bg-black">
                 <Image
                   src="/chess-board-3d.png"
-                  alt="A 3D chess board with pieces set up for analysis"
+                  alt="Chess Library's opening analysis board"
                   width={720}
                   height={720}
                   priority
@@ -171,7 +146,6 @@ export default function Page() {
               </div>
             </div>
 
-            {/* Floating status card - Flat design */}
             <div className="absolute -bottom-6 left-6 flex items-center gap-4 rounded-xl border border-white/10 bg-[#262421] px-5 py-4 shadow-xl sm:left-10">
               <span className="relative flex h-3 w-3">
                 <span className="absolute inline-flex h-full w-full animate-ping rounded-full bg-[#81b64c] opacity-40" />
