@@ -6,16 +6,19 @@ export const metadata: Metadata = {
   description: 'Your personal chess opening repertoire',
 }
 
+// app/layout.tsx
+import { ThemeProvider } from "@/lib/theme-context";
+
 export default function RootLayout({
   children,
-}: Readonly<{
-  children: React.ReactNode
-}>) {
+}: {
+  children: React.ReactNode;
+}) {
   return (
     <html lang="en">
-      <body className="antialiased">
-        {children}
+      <body>
+        <ThemeProvider>{children}</ThemeProvider>
       </body>
     </html>
-  )
+  );
 }

@@ -1,8 +1,9 @@
+// app/dashboard/page.tsx
 "use client";
 
 import { useState, useMemo, useCallback } from "react";
 import { Chess } from "chess.js";
-import dynamic from "next/dynamic";
+import { Chessboard } from "react-chessboard";
 import {
   Plus,
   Upload,
@@ -13,13 +14,7 @@ import {
   ChevronRight,
   Palette,
 } from "lucide-react";
-import { createSupabaseBrowserClient } from "@/lib/supabase/client";
-
-// Dynamically import the chessboard to prevent Next.js server-side crashes
-const Chessboard: any = dynamic(
-  () => import("react-chessboard").then((mod) => mod.Chessboard),
-  { ssr: false }
-);
+import { useTheme } from "@/lib/theme-context";
 
 const SAVED_OPENINGS = [
   "Sicilian: Najdorf",
@@ -32,42 +27,53 @@ const SAVED_OPENINGS = [
   "London System",
 ];
 
+const THEMES = {
+  classic: {
+    appBg: "#21201d",
+    sidebarBg: "#262421",
+    accent: "#81b64c",
+    accentHover: "#8bc255",
+    accentText: "#1b2a0f",
+    boardLight: "#ebecd0",
+    boardDark: "#739552",
+  },
+  wood: {
+    appBg: "#3e2f23",
+    sidebarBg: "#4a3626",
+    accent: "#c9a06a",
+    accentHover: "#d6b280",
+    accentText: "#2a1c10",
+    boardLight: "#f0d9b5",
+    boardDark: "#b58863",
+  },
+} as const;
+
 function groupMoves(sanMoves: string[]) {
-  const rows = [];
+  const rows: { no: number; white: string; black?: string }[] = [];
   for (let i = 0; i < sanMoves.length; i += 2) {
-    rows.push({
-      no: i / 2 + 1,
-      white: sanMoves[i],
-      black: sanMoves[i + 1],
-    });
+    rows.push({ no: i / 2 + 1, white: sanMoves[i], black: sanMoves[i + 1] });
   }
   return rows;
 }
 
-export default function ChessLibraryDashboard() {
+export default function DashboardPage() {
+  const { theme, toggleTheme } = useTheme();
+  const colors = THEMES[theme];
+
   const [activeOpening, setActiveOpening] = useState("Sicilian: Najdorf");
   const [openingName, setOpeningName] = useState("Sicilian: Najdorf");
   const [orientation, setOrientation] = useState<"white" | "black">("white");
-  const [boardTheme, setBoardTheme] = useState<"green" | "brown">("green");
 
   const game = useMemo(() => new Chess(), []);
   const [position, setPosition] = useState(game.fen());
   const [sanMoves, setSanMoves] = useState<string[]>([]);
 
-  // Bulletproof drop handler that supports both older and newer v5 react-chessboard APIs
-  const onDrop = useCallback(
-    (...args: any[]) => {
-      const sourceSquare = typeof args[0] === "string" ? args[0] : args[0].sourceSquare;
-      const targetSquare = typeof args[1] === "string" ? args[1] : args[0].targetSquare;
-      
+  const onPieceDrop = useCallback(
+    ({ sourceSquare, targetSquare }: { sourceSquare: string; targetSquare: string | null }) => {
+      if (!targetSquare) return false;
       try {
-        const move = game.move({
-          from: sourceSquare,
-          to: targetSquare,
-          promotion: "q",
-        });
+        const move = game.move({ from: sourceSquare, to: targetSquare, promotion: "q" });
         if (move === null) return false;
-
         setPosition(game.fen());
         setSanMoves(game.history());
         return true;
@@ -82,44 +88,33 @@ export default function ChessLibraryDashboard() {
     setOrientation((prev) => (prev === "white" ? "black" : "white"));
   };
 
-  const handleThemeToggle = () => {
-    setBoardTheme((prev) => (prev === "green" ? "brown" : "green"));
-  };
-
-  async function handleSignOut() {
-    const supabase = createSupabaseBrowserClient();
-    if (!supabase) {
-      window.location.replace("/");
-      return;
-    }
-
-    await supabase.auth.signOut();
-    window.location.replace("/login/success?mode=logout&next=/");
-  }
-
   const moveRows = groupMoves(sanMoves);
 
-  const themeColors = {
-    green: { light: "#ebecd0", dark: "#739552" },
-    brown: { light: "#f0d9b5", dark: "#b58863" },
+  const chessboardOptions = {
+    position,
+    onPieceDrop,
+    boardOrientation: orientation,
+    darkSquareStyle: { backgroundColor: colors.boardDark },
+    lightSquareStyle: { backgroundColor: colors.boardLight },
+    boardStyle: { borderRadius: "0px" },
+    allowDrawingArrows: true,
   };
 
   return (
     <div
-      className="flex h-screen w-full overflow-hidden text-white"
-      style={{ backgroundColor: "#21201d" }}
+      className="flex h-screen w-full overflow-hidden text-white transition-colors duration-300"
+      style={{ backgroundColor: colors.appBg }}
     >
-      {/* Sidebar */}
       <aside
-        className="flex w-72 shrink-0 flex-col border-r border-white/5"
-        style={{ backgroundColor: "#262421" }}
+        className="flex w-72 shrink-0 flex-col border-r border-white/5 transition-colors duration-300"
+        style={{ backgroundColor: colors.sidebarBg }}
       >
         <div className="p-3">
           <button
-            className="flex w-full items-center justify-center gap-2 rounded-lg px-4 py-2.5 text-sm font-medium text-[#1b2a0f] transition-colors"
-            style={{ backgroundColor: "#81b64c" }}
-            onMouseEnter={(e) => (e.currentTarget.style.backgroundColor = "#8bc255")}
-            onMouseLeave={(e) => (e.currentTarget.style.backgroundColor = "#81b64c")}
+            className="flex w-full items-center justify-center gap-2 rounded-lg px-4 py-2.5 text-sm font-medium transition-colors"
+            style={{ backgroundColor: colors.accent, color: colors.accentText }}
+            onMouseEnter={(e) => (e.currentTarget.style.backgroundColor = colors.accentHover)}
+            onMouseLeave={(e) => (e.currentTarget.style.backgroundColor = colors.accent)}
           >
             <Plus size={17} strokeWidth={2.5} />
             New Opening
@@ -167,10 +162,7 @@ export default function ChessLibraryDashboard() {
               <Settings size={16} />
               Settings
             </button>
-            <button 
-              onClick={handleSignOut}
-              className="flex items-center gap-2.5 rounded-md px-2.5 py-2 text-sm text-zinc-400 transition-colors hover:bg-white/5 hover:text-red-400"
-            >
+            <button className="flex items-center gap-2.5 rounded-md px-2.5 py-2 text-sm text-zinc-400 transition-colors hover:bg-white/5 hover:text-red-400">
               <LogOut size={16} />
               Sign Out
             </button>
@@ -178,12 +170,10 @@ export default function ChessLibraryDashboard() {
         </div>
       </aside>
 
-      {/* Main content */}
       <div className="flex flex-1 flex-col overflow-hidden">
-        {/* Header */}
         <header
-          className="flex shrink-0 items-center gap-4 border-b border-white/5 px-6 py-3.5"
-          style={{ backgroundColor: "#21201d" }}
+          className="flex shrink-0 items-center gap-4 border-b border-white/5 px-6 py-3.5 transition-colors duration-300"
+          style={{ backgroundColor: colors.appBg }}
         >
           <input
             type="text"
@@ -194,7 +184,7 @@ export default function ChessLibraryDashboard() {
           />
           <div className="flex items-center gap-2">
             <button
-              onClick={handleThemeToggle}
+              onClick={toggleTheme}
               className="flex items-center gap-2 rounded-lg border border-white/10 px-3.5 py-2 text-sm text-zinc-300 transition-colors hover:bg-white/5 hover:text-white"
             >
               <Palette size={15} />
@@ -208,10 +198,10 @@ export default function ChessLibraryDashboard() {
               Flip Board
             </button>
             <button
-              className="flex items-center gap-2 rounded-lg px-3.5 py-2 text-sm font-medium text-[#1b2a0f] transition-colors"
-              style={{ backgroundColor: "#81b64c" }}
-              onMouseEnter={(e) => (e.currentTarget.style.backgroundColor = "#8bc255")}
-              onMouseLeave={(e) => (e.currentTarget.style.backgroundColor = "#81b64c")}
+              className="flex items-center gap-2 rounded-lg px-3.5 py-2 text-sm font-medium transition-colors"
+              style={{ backgroundColor: colors.accent, color: colors.accentText }}
+              onMouseEnter={(e) => (e.currentTarget.style.backgroundColor = colors.accentHover)}
+              onMouseLeave={(e) => (e.currentTarget.style.backgroundColor = colors.accent)}
             >
               <Save size={15} />
               Save Line
@@ -219,35 +209,14 @@ export default function ChessLibraryDashboard() {
           </div>
         </header>
 
-        {/* Body: board + notation panel */}
         <div className="flex flex-1 items-center justify-center gap-8 overflow-auto p-8">
           <div className="flex w-full max-w-[560px] items-center justify-center overflow-hidden rounded-md border border-white/10 shadow-[0_8px_24px_rgba(0,0,0,0.35)]">
-            {/* @ts-ignore - Safely bypasses React 19 / v5 typing issues */}
-            <Chessboard
-              key={boardTheme}
-              // Standard props for backwards compatibility
-              position={position}
-              boardOrientation={orientation}
-              customDarkSquareStyle={{ backgroundColor: themeColors[boardTheme].dark }}
-              customLightSquareStyle={{ backgroundColor: themeColors[boardTheme].light }}
-              onPieceDrop={onDrop}
-              areArrowsAllowed={true}
-              // Options object specifically required for v5+
-              options={{
-                position: position,
-                boardOrientation: orientation,
-                customDarkSquareStyle: { backgroundColor: themeColors[boardTheme].dark },
-                customLightSquareStyle: { backgroundColor: themeColors[boardTheme].light },
-                onPieceDrop: onDrop,
-                areArrowsAllowed: true
-              }}
-            />
+            <Chessboard options={chessboardOptions} />
           </div>
 
-          {/* Notation panel */}
           <div
-            className="hidden h-[560px] w-72 shrink-0 flex-col rounded-lg border border-white/10 lg:flex"
-            style={{ backgroundColor: "#262421" }}
+            className="hidden h-[560px] w-72 shrink-0 flex-col rounded-lg border border-white/10 transition-colors duration-300 lg:flex"
+            style={{ backgroundColor: colors.sidebarBg }}
           >
             <div className="border-b border-white/5 px-4 py-3">
               <p className="text-sm font-medium text-white">Move History</p>
