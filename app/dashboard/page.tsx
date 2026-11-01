@@ -26,6 +26,7 @@ import { useTheme } from "@/lib/theme-context";
 import { supabaseBrowser } from "@/lib/supabase/client";
 import { signOutUser } from "@/lib/auth/supabase-auth";
 import { DeleteAccountButton } from "@/components/delete-account-button";
+import { PgnImportModal, type ImportedOpening } from "@/components/pgn-import-modal";
 import { BranchModal, type BranchLine } from "@/components/branch-modal";
 
 const WORKSPACE_COLORS = {
@@ -132,6 +133,7 @@ export default function DashboardPage() {
   const { toggleTheme } = useTheme();
   const colors = WORKSPACE_COLORS;
   const [libraryOpen, setLibraryOpen] = useState(false);
+  const [isPgnImportOpen, setIsPgnImportOpen] = useState(false);
 
   const [openings, setOpenings] = useState<Opening[]>([]);
   const [variationsByOpening, setVariationsByOpening] = useState<Record<string, SavedVariation[]>>({});
@@ -519,6 +521,21 @@ export default function DashboardPage() {
     setNavigationVariationName("");
     if (action.type === "sign-out") allowUnloadRef.current = true;
     runPendingNavigation(action);
+  }
+
+  async function handleImportedOpenings(imported: ImportedOpening[]) {
+    setOpenings(current => [...imported, ...current]);
+    setOpeningListError("");
+    if (!supabaseBrowser) return;
+    try {
+      const { data, error } = await supabaseBrowser.from("opening_nodes")
+        .select("id, opening_id, parent_node_id, variation_name")
+        .in("opening_id", imported.map(opening => opening.id));
+      if (error) throw error;
+      setVariationsByOpening(current => ({ ...current, ...groupSavedVariations(data ?? []) }));
+    } catch {
+      setOpeningListError("Your openings were imported. Reload the library to display their variations.");
+    }
   }
 
   async function handleCreateOpening(event: FormEvent<HTMLFormElement>) {
@@ -1160,7 +1177,7 @@ export default function DashboardPage() {
 
         <div className="border-t border-white/5 p-3">
           <div className="flex flex-col gap-0.5">
-            <button disabled title="PGN import is not available yet" className="flex items-center gap-2.5 rounded-md px-2.5 py-2 text-sm text-muted disabled:opacity-50">
+            <button type="button" onClick={() => { setLibraryOpen(false); setIsPgnImportOpen(true); }} className="flex items-center gap-2.5 rounded-md px-2.5 py-2 text-sm text-muted transition-colors hover:bg-white/5 hover:text-ink">
               <Upload size={16} />
               Import PGN
             </button>
@@ -1382,6 +1399,8 @@ export default function DashboardPage() {
           </div>
         </div>
       </div>
+
+      {isPgnImportOpen && <PgnImportModal onClose={() => setIsPgnImportOpen(false)} onImported={handleImportedOpenings} />}
 
       {isNewOpeningOpen && (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-overlay p-4">
