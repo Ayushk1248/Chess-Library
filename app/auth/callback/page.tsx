@@ -7,10 +7,10 @@ import { handleOAuthCallback } from '@/lib/auth/supabase-auth'
 export default function AuthCallbackPage() {
   return (
     <Suspense fallback={
-      <div className="flex min-h-screen items-center justify-center bg-slate-900 p-4">
+      <div className="auth-shell flex min-h-screen items-center justify-center bg-canvas p-4">
         <div className="text-center">
-          <div className="mb-4 h-8 w-8 animate-spin rounded-full border-4 border-white/20 border-t-cyan-400 mx-auto" />
-          <p className="text-sm text-white/60">Signing you in...</p>
+          <div className="mb-4 h-8 w-8 animate-spin rounded-full border-4 border-white/20 border-t-accent mx-auto" />
+          <p className="text-sm text-ink/60">Signing you in...</p>
         </div>
       </div>
     }>
@@ -59,25 +59,25 @@ function AuthCallbackContent() {
   }
 
   return (
-    <div className="flex min-h-screen items-center justify-center bg-slate-900 p-4">
+    <div className="auth-shell flex min-h-screen items-center justify-center bg-canvas p-4">
       <div className="text-center">
         {isProcessing ? (
           <>
-            <div className="mb-4 h-8 w-8 animate-spin rounded-full border-4 border-white/20 border-t-cyan-400 mx-auto" />
-            <p className="text-sm text-white/60">Signing you in...</p>
+            <div className="mb-4 h-8 w-8 animate-spin rounded-full border-4 border-white/20 border-t-accent mx-auto" />
+            <p className="text-sm text-ink/60">Signing you in...</p>
           </>
         ) : error ? (
           <>
-            <div className="mb-4 rounded-lg border border-red-500/30 bg-red-500/10 p-4 text-sm text-red-400 max-w-sm">
+            <div className="mb-4 rounded-lg border border-error/30 bg-error/10 p-4 text-sm text-error max-w-sm">
               <p className="font-medium">Authentication Error</p>
               <p className="mt-1 text-xs">{error}</p>
             </div>
-            <p className="text-xs text-white/40 mt-4">Redirecting to login...</p>
+            <p className="text-xs text-ink/40 mt-4">Redirecting to login...</p>
           </>
         ) : (
           <>
-            <div className="mb-4 text-lg text-cyan-400">✓</div>
-            <p className="text-sm text-white/60">Redirecting...</p>
+            <div className="mb-4 text-lg text-accent">✓</div>
+            <p className="text-sm text-ink/60">Redirecting...</p>
           </>
         )}
       </div>

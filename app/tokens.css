@@ -1,0 +1,58 @@
+/* Hallmark · shared Chess Library design tokens */
+:root {
+ --color-google-blue: #4285F4;
+ --color-google-green: #34A853;
+ --color-google-yellow: #FBBC05;
+ --color-google-red: #EA4335;
+ --color-accent-ink: #1d2c14;
+ --color-canvas: #1c1e1b;
+ --color-panel: #252923;
+ --color-raised: #30362d;
+ --color-field: #191c18;
+ --color-ink: #f3f1e8;
+ --color-secondary: #d0d3c7;
+ --color-muted: #a3ad9d;
+ --color-accent: #a3c779;
+ --color-accent-hover: #bad891;
+ --color-on-accent: #1d2c14;
+ --color-rule: #41483c;
+ --color-focus: #d7e9b7;
+ --color-board-light: #ebecd0;
+ --color-board-dark: #739552;
+ --color-error: #f7a59d;
+ --color-success: #a3c779;
+ --color-overlay: #10130fd9;
+ --color-transparent: transparent;
+ --font-body: 'Source Sans 3', 'Segoe UI', sans-serif;
+ --font-display: 'Source Serif 4', Georgia, serif;
+ --shadow-dialog: 0 24px 80px #10130f80;
+}
+:root[data-theme="wood"] {
+ --color-canvas: #29231e;
+ --color-panel: #342c25;
+ --color-raised: #44392e;
+ --color-field: #241e19;
+ --color-accent: #d6b280;
+ --color-accent-hover: #e6c69e;
+ --color-on-accent: #2a1c10;
+ --color-rule: #57493a;
+ --color-muted: #b9ab99;
+ --color-focus: #f0d9b5;
+ --color-board-light: #f0d9b5;
+ --color-board-dark: #b58863;
+}
+@theme inline {
+ --color-canvas: var(--color-canvas);
+ --color-panel: var(--color-panel);
+ --color-raised: var(--color-raised);
+ --color-field: var(--color-field);
+ --color-ink: var(--color-ink);
+ --color-secondary: var(--color-secondary);
+ --color-muted: var(--color-muted);
+ --color-accent: var(--color-accent);
+ --color-accent-hover: var(--color-accent-hover);
+ --color-on-accent: var(--color-on-accent);
+ --color-error: var(--color-error);
+ --color-overlay: var(--color-overlay);
+ --font-sans: var(--font-body);
+}

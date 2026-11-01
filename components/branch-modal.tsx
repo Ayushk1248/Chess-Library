@@ -249,14 +249,14 @@ export function BranchModal({
           type="button"
           onClick={() => handleSelectLine(line)}
           className={`w-full rounded-md px-2 py-2 text-left text-sm transition-colors ${
-            line.id === activeLineId ? "bg-white/5 text-white" : "text-zinc-300 hover:bg-white/5"
+            line.id === activeLineId ? "bg-white/5 text-ink" : "text-secondary hover:bg-white/5"
           }`}
         >
           <div className="flex items-center justify-between">
             <span>{line.name}</span>
-            <span className="text-xs text-zinc-500">{line.moves.length} moves</span>
+            <span className="text-xs text-muted">{line.moves.length} moves</span>
           </div>
-          <p className="mt-1 text-xs text-zinc-500">
+          <p className="mt-1 text-xs text-muted">
             {line.moves.length === 0 ? "No moves yet" : line.moves.map((move) => move.moveSan).join(" ")}
           </p>
         </button>
@@ -281,22 +281,22 @@ export function BranchModal({
   };
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center overflow-y-auto bg-black/70 p-4">
+    <div className="fixed inset-0 z-50 flex items-center justify-center overflow-y-auto bg-overlay p-4">
       <section
         role="dialog"
         aria-modal="true"
         aria-labelledby="branch-modal-title"
-        className="my-auto flex max-h-[95vh] w-full max-w-5xl flex-col overflow-hidden rounded-lg border border-white/10 shadow-2xl"
+        className="my-auto flex max-h-[95vh] w-full max-w-5xl flex-col overflow-hidden rounded-lg border border-white/10 "
         style={{ backgroundColor: colors.sidebarBg }}
       >
         <header className="flex items-center justify-between border-b border-white/10 px-5 py-3">
           <div className="flex items-center gap-2.5">
-            <GitBranch size={17} className="text-zinc-400" />
+            <GitBranch size={17} className="text-muted" />
             <div>
-              <h2 id="branch-modal-title" className="text-base font-semibold text-white">
+              <h2 id="branch-modal-title" className="text-base font-semibold text-ink">
                 Branch
               </h2>
-              <p className="text-xs text-zinc-500">{openingName}</p>
+              <p className="text-xs text-muted">{openingName}</p>
             </div>
           </div>
           <button
@@ -305,7 +305,7 @@ export function BranchModal({
             disabled={isConfirming}
             aria-label="Discard branches and close"
             title="Close without saving"
-            className="rounded p-1.5 text-zinc-400 transition-colors hover:bg-white/10 hover:text-white"
+            className="rounded p-1.5 text-muted transition-colors hover:bg-white/10 hover:text-ink"
           >
             <X size={17} />
           </button>
@@ -320,7 +320,7 @@ export function BranchModal({
 
           <aside className="flex min-h-[220px] flex-col border-t border-white/10 pt-4 lg:min-h-0 lg:border-l lg:border-t-0 lg:pl-4 lg:pt-0">
             <div className="flex items-center justify-between border-b border-white/10 pb-3">
-              <p className="text-sm font-medium text-white">Conditional Lines</p>
+              <p className="text-sm font-medium text-ink">Conditional Lines</p>
               <div className="flex items-center gap-1">
                 <button
                   type="button"
@@ -328,11 +328,11 @@ export function BranchModal({
                   disabled={!activeLine || moveIndex === 0}
                   aria-label="Previous move"
                   title="Previous move"
-                  className="rounded p-1 text-zinc-400 transition-colors hover:bg-white/10 hover:text-white disabled:cursor-not-allowed disabled:opacity-40"
+                  className="rounded p-1 text-muted transition-colors hover:bg-white/10 hover:text-ink disabled:cursor-not-allowed disabled:opacity-40"
                 >
                   <ChevronLeft size={16} />
                 </button>
-                <span className="min-w-10 text-center text-xs tabular-nums text-zinc-500">
+                <span className="min-w-10 text-center text-xs tabular-nums text-muted">
                   {moveIndex}/{activeLine?.moves.length ?? 0}
                 </span>
                 <button
@@ -341,7 +341,7 @@ export function BranchModal({
                   disabled={!activeLine || moveIndex === activeLine.moves.length}
                   aria-label="Next move"
                   title="Next move"
-                  className="rounded p-1 text-zinc-400 transition-colors hover:bg-white/10 hover:text-white disabled:cursor-not-allowed disabled:opacity-40"
+                  className="rounded p-1 text-muted transition-colors hover:bg-white/10 hover:text-ink disabled:cursor-not-allowed disabled:opacity-40"
                 >
                   <ChevronRight size={16} />
                 </button>
@@ -350,13 +350,13 @@ export function BranchModal({
 
             <div className="flex-1 overflow-y-auto py-2">
               {confirmError && (
-                <p role="alert" className="px-2 py-2 text-xs text-red-400">{confirmError}</p>
+                <p role="alert" className="px-2 py-2 text-xs text-error">{confirmError}</p>
               )}
               {lineError && (
-                <p role="alert" className="px-2 py-2 text-xs text-red-400">{lineError}</p>
+                <p role="alert" className="px-2 py-2 text-xs text-error">{lineError}</p>
               )}
               {lines.length === 0 && !confirmError && !lineError && (
-                <p className="px-2 py-2 text-xs text-zinc-500">No lines yet. Add a line or play a move.</p>
+                <p className="px-2 py-2 text-xs text-muted">No lines yet. Add a line or play a move.</p>
               )}
               {(lines.filter((line) => findParentLineId(line) === null).length > 0
                 ? lines.filter((line) => findParentLineId(line) === null)
@@ -369,12 +369,12 @@ export function BranchModal({
                 <button
                   type="button"
                   onClick={addLineAtCurrentPosition}
-                  className="inline-flex items-center gap-1.5 rounded-md border border-white/10 px-3 py-2 text-sm text-zinc-300 transition-colors hover:bg-white/5 hover:text-white"
+                  className="inline-flex items-center gap-1.5 rounded-md border border-white/10 px-3 py-2 text-sm text-secondary transition-colors hover:bg-white/5 hover:text-ink"
                 >
                   <Plus size={14} />
                   Add Line
                 </button>
-                <p className="max-w-full truncate px-1 text-xs text-zinc-500">
+                <p className="max-w-full truncate px-1 text-xs text-muted">
                   Branches from: {branchContext}
                 </p>
               </div>
@@ -383,7 +383,7 @@ export function BranchModal({
                   type="button"
                   onClick={handleDeleteMove}
                   disabled={!activeLine || activeLine.moves.length === 0}
-                  className="inline-flex items-center gap-1.5 rounded-md border border-white/10 px-3 py-2 text-sm text-zinc-300 transition-colors hover:bg-white/5 hover:text-white disabled:cursor-not-allowed disabled:opacity-40"
+                  className="inline-flex items-center gap-1.5 rounded-md border border-white/10 px-3 py-2 text-sm text-secondary transition-colors hover:bg-white/5 hover:text-ink disabled:cursor-not-allowed disabled:opacity-40"
                 >
                   <Trash2 size={14} />
                   Delete Move

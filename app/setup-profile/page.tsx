@@ -1,5 +1,6 @@
 'use client'
 
+import { Crown } from "lucide-react"
 import { useState, useEffect } from 'react'
 import { useRouter } from 'next/navigation'
 import { getCurrentUser, updatePassword, updateUserProfile, isNewUser, getLinkedIdentities } from '@/lib/auth/supabase-auth'
@@ -103,10 +104,10 @@ export default function SetupProfilePage() {
 
   if (loading) {
     return (
-      <div className="flex min-h-screen items-center justify-center bg-[#21201d]">
+      <div className="auth-shell flex min-h-screen items-center justify-center bg-canvas">
         <div className="text-center">
-          <div className="mb-4 h-8 w-8 animate-spin rounded-full border-4 border-white/10 border-t-[#81b64c] mx-auto" />
-          <p className="text-sm text-zinc-500">Setting up your profile...</p>
+          <div className="mb-4 h-8 w-8 animate-spin rounded-full border-4 border-white/10 border-t-accent mx-auto" />
+          <p className="text-sm text-muted">Setting up your profile...</p>
         </div>
       </div>
     )
@@ -114,36 +115,36 @@ export default function SetupProfilePage() {
 
   if (info && !error) {
     return (
-      <div className="flex min-h-screen items-center justify-center bg-[#21201d] p-4">
+      <div className="auth-shell flex min-h-screen items-center justify-center bg-canvas p-4">
         <div className="text-center">
-          <div className="mb-4 text-lg text-[#81b64c]">✓</div>
-          <div className="rounded-lg border border-[#81b64c]/30 bg-[#81b64c]/10 p-4 text-sm text-[#81b64c] max-w-sm mb-4">
+          <div className="mb-4 text-lg text-accent">✓</div>
+          <div className="rounded-lg border border-accent/30 bg-accent/10 p-4 text-sm text-accent max-w-sm mb-4">
             {info}
           </div>
-          <p className="text-xs text-zinc-500">Redirecting to dashboard...</p>
+          <p className="text-xs text-muted">Redirecting to dashboard...</p>
         </div>
       </div>
     )
   }
 
   return (
-    <div className="relative flex min-h-screen items-center justify-center bg-[#21201d] p-4">
-      <div className="w-full max-w-md rounded-2xl border border-white/5 bg-[#262421] px-8 py-10 shadow-2xl">
+    <div className="auth-shell relative flex min-h-screen items-center justify-center bg-canvas p-4">
+      <div className="auth-card w-full max-w-md rounded-2xl border border-white/5 bg-panel px-8 py-10 ">
         <div className="mb-6 text-center">
-          <h1 className="text-3xl font-bold text-[#81b64c]">♔</h1>
+          <Crown size={28} className="text-accent mx-auto" aria-hidden="true" />
         </div>
 
-        <h1 className="mb-2 text-center text-xl font-bold text-white">Complete your profile</h1>
-        <p className="mb-7 text-center text-sm text-zinc-400">Set up your username and password to get started</p>
+        <h1 className="mb-2 text-center text-xl font-bold text-ink">Complete your profile</h1>
+        <p className="mb-7 text-center text-sm text-muted">Set up your username and password to get started</p>
 
         {error && (
-          <p className="mb-4 rounded-lg border border-red-500/30 bg-red-500/10 px-4 py-2.5 text-center text-sm text-red-400">
+          <p className="mb-4 rounded-lg border border-error/30 bg-error/10 px-4 py-2.5 text-center text-sm text-error">
             {error}
           </p>
         )}
 
         {linkedProviders.length > 0 && (
-          <p className="mb-4 rounded-lg border border-[#81b64c]/30 bg-[#81b64c]/10 px-3 py-2.5 text-center text-xs text-[#81b64c]">
+          <p className="mb-4 rounded-lg border border-accent/30 bg-accent/10 px-3 py-2.5 text-center text-xs text-accent">
             Connected with: {linkedProviders.join(', ')}
           </p>
         )}
@@ -151,38 +152,41 @@ export default function SetupProfilePage() {
         <div className="rounded-xl border border-white/5 bg-black/20 p-4">
           <div className="space-y-3">
             <div>
-              <label className="text-xs font-semibold text-zinc-400">Username</label>
+              <label className="text-xs font-semibold text-muted">Username</label>
               <input
-                type="text"
+                aria-label="Choose a username"
+              type="text"
                 value={username}
                 onChange={(e) => setUsername(e.target.value)}
                 placeholder="Choose a username"
-                className="mt-1 w-full rounded-lg border border-white/10 bg-black/40 px-3 py-2.5 text-sm text-white outline-none placeholder:text-zinc-600 focus:border-[#81b64c]/50 focus:ring-1 focus:ring-[#81b64c]/50"
+                className="mt-1 w-full rounded-lg border border-white/10 bg-field px-3 py-2.5 text-sm text-ink outline-none placeholder:text-muted focus:border-accent/50 focus:ring-1 focus:ring-accent/50"
               />
             </div>
 
             <div>
-              <label className="text-xs font-semibold text-zinc-400">Password</label>
+              <label className="text-xs font-semibold text-muted">Password</label>
               <input
-                type="password"
+                aria-label="Create a password"
+              type="password"
                 value={password}
                 onChange={(e) => setPassword(e.target.value)}
                 placeholder="Create a password"
                 required
-                className="mt-1 w-full rounded-lg border border-white/10 bg-black/40 px-3 py-2.5 text-sm text-white outline-none placeholder:text-zinc-600 focus:border-[#81b64c]/50 focus:ring-1 focus:ring-[#81b64c]/50"
+                className="mt-1 w-full rounded-lg border border-white/10 bg-field px-3 py-2.5 text-sm text-ink outline-none placeholder:text-muted focus:border-accent/50 focus:ring-1 focus:ring-accent/50"
               />
-              <p className="mt-1 text-xs text-zinc-500">You'll be able to sign in with email + password or Google</p>
+              <p className="mt-1 text-xs text-muted">You&apos;ll be able to sign in with email + password or Google</p>
             </div>
 
             <div>
-              <label className="text-xs font-semibold text-zinc-400">Confirm password</label>
+              <label className="text-xs font-semibold text-muted">Confirm password</label>
               <input
-                type="password"
+                aria-label="Confirm password"
+              type="password"
                 value={confirmPassword}
                 onChange={(e) => setConfirmPassword(e.target.value)}
                 placeholder="Confirm password"
                 required
-                className="mt-1 w-full rounded-lg border border-white/10 bg-black/40 px-3 py-2.5 text-sm text-white outline-none placeholder:text-zinc-600 focus:border-[#81b64c]/50 focus:ring-1 focus:ring-[#81b64c]/50"
+                className="mt-1 w-full rounded-lg border border-white/10 bg-field px-3 py-2.5 text-sm text-ink outline-none placeholder:text-muted focus:border-accent/50 focus:ring-1 focus:ring-accent/50"
                 onKeyDown={(e) => e.key === 'Enter' && handleSetupProfile()}
               />
             </div>
@@ -191,14 +195,14 @@ export default function SetupProfilePage() {
               type="button"
               onClick={handleSetupProfile}
               disabled={saving}
-              className="mt-4 flex w-full items-center justify-center rounded-lg bg-[#81b64c] py-3 text-sm font-bold text-white transition-colors hover:bg-[#8bc255] disabled:opacity-50"
+              className="mt-4 flex w-full items-center justify-center rounded-lg bg-accent py-3 text-sm font-bold text-ink transition-colors hover:bg-accent-hover disabled:opacity-50"
             >
               {saving ? 'Saving...' : 'Continue to Dashboard'}
             </button>
           </div>
         </div>
 
-        <p className="mt-5 text-center text-xs text-zinc-500">You can change these settings later</p>
+        <p className="mt-5 text-center text-xs text-muted">You can change these settings later</p>
       </div>
     </div>
   )

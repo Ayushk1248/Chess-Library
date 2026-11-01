@@ -96,68 +96,71 @@ export default function ForgotPasswordPage() {
   }
 
   return (
-    <div className="flex min-h-screen items-center justify-center bg-gradient-to-br from-slate-900 via-slate-800 to-slate-900 p-4">
-      <div className="w-full max-w-md rounded-2xl border border-white/10 bg-slate-900/50 p-8 shadow-2xl backdrop-blur-xl">
-        <h1 className="mb-2 text-center text-2xl font-bold text-white">
+    <div className="auth-shell flex min-h-screen items-center justify-center bg-canvas p-4">
+      <div className="auth-card w-full max-w-md rounded-2xl border border-white/10 bg-panel p-8  backdrop-blur-xl">
+        <h1 className="mb-2 text-center text-2xl font-bold text-ink">
           {canSetPassword ? 'Set New Password' : 'Reset Password'}
         </h1>
-        <p className="mb-6 text-center text-sm text-slate-400">
+        <p className="mb-6 text-center text-sm text-muted">
           {canSetPassword ? 'Choose a new password for your account.' : 'Enter your email to receive a reset link.'}
         </p>
 
         {error && (
-          <p className="mb-4 rounded-lg border border-red-500/30 bg-red-500/10 px-4 py-2.5 text-center text-sm text-red-400">
+          <p className="mb-4 rounded-lg border border-error/30 bg-error/10 px-4 py-2.5 text-center text-sm text-error">
             {error}
           </p>
         )}
 
         {success && (
-          <p className="mb-4 rounded-lg border border-emerald-500/30 bg-emerald-500/10 px-4 py-2.5 text-center text-sm text-emerald-300">
+          <p className="mb-4 rounded-lg border border-accent/30 bg-accent/10 px-4 py-2.5 text-center text-sm text-accent">
             {success}
           </p>
         )}
 
         {!canSetPassword ? (
           <div className="space-y-3">
-            <input
+            <label className="block space-y-1.5"><span className="block text-sm text-secondary">Email address</span><input
+              aria-label="Email address"
               type="email"
               value={email}
               onChange={(e) => setEmail(e.target.value)}
               placeholder="Email address"
-              className="w-full rounded-lg border border-white/10 bg-slate-950/50 px-4 py-3 text-sm text-white outline-none placeholder:text-slate-500 focus:border-cyan-400/50"
+              className="w-full rounded-lg border border-white/10 bg-field px-4 py-3 text-sm text-ink outline-none placeholder:text-muted focus:border-accent"
               onKeyDown={(e) => e.key === 'Enter' && handleSendResetEmail()}
-            />
+            /></label>
             <button
               type="button"
               onClick={handleSendResetEmail}
               disabled={loading}
-              className="flex w-full items-center justify-center rounded-lg bg-gradient-to-r from-cyan-500 to-blue-500 py-3 text-sm font-medium text-white transition hover:opacity-90 disabled:opacity-50"
+              className="flex w-full items-center justify-center rounded-lg bg-accent py-3 text-sm font-medium text-ink transition hover:opacity-90 disabled:opacity-50"
             >
               {loading ? 'Sending...' : submitted ? 'Resend Email' : 'Send Reset Email'}
             </button>
           </div>
         ) : (
           <div className="space-y-3">
-            <input
+            <label className="block space-y-1.5"><span className="block text-sm text-secondary">New password</span><input
+              aria-label="New password"
               type="password"
               value={password}
               onChange={(e) => setPassword(e.target.value)}
               placeholder="New password"
-              className="w-full rounded-lg border border-white/10 bg-slate-950/50 px-4 py-3 text-sm text-white outline-none placeholder:text-slate-500 focus:border-cyan-400/50"
-            />
-            <input
+              className="w-full rounded-lg border border-white/10 bg-field px-4 py-3 text-sm text-ink outline-none placeholder:text-muted focus:border-accent"
+            /></label>
+            <label className="block space-y-1.5"><span className="block text-sm text-secondary">Confirm new password</span><input
+              aria-label="Confirm new password"
               type="password"
               value={confirmPassword}
               onChange={(e) => setConfirmPassword(e.target.value)}
               placeholder="Confirm new password"
-              className="w-full rounded-lg border border-white/10 bg-slate-950/50 px-4 py-3 text-sm text-white outline-none placeholder:text-slate-500 focus:border-cyan-400/50"
+              className="w-full rounded-lg border border-white/10 bg-field px-4 py-3 text-sm text-ink outline-none placeholder:text-muted focus:border-accent"
               onKeyDown={(e) => e.key === 'Enter' && handleUpdatePassword()}
-            />
+            /></label>
             <button
               type="button"
               onClick={handleUpdatePassword}
               disabled={loading}
-              className="flex w-full items-center justify-center rounded-lg bg-gradient-to-r from-cyan-500 to-blue-500 py-3 text-sm font-medium text-white transition hover:opacity-90 disabled:opacity-50"
+              className="flex w-full items-center justify-center rounded-lg bg-accent py-3 text-sm font-medium text-ink transition hover:opacity-90 disabled:opacity-50"
             >
               {loading ? 'Updating...' : 'Update Password'}
             </button>
@@ -168,7 +171,7 @@ export default function ForgotPasswordPage() {
           <button
             type="button"
             onClick={() => router.push('/login')}
-            className="text-sm text-cyan-400 hover:text-cyan-300 transition"
+            className="text-sm text-accent hover:text-accent-hover transition"
           >
             Back to Sign In
           </button>

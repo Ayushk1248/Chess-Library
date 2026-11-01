@@ -32,32 +32,32 @@ export function DeleteAccountButton() {
       <button
         type="button"
         onClick={() => setIsOpen(true)}
-        className="inline-flex items-center gap-2 rounded-lg border border-red-500/40 bg-red-500/10 px-6 py-3 text-sm font-medium text-red-400 transition hover:bg-red-500/20"
+        className="inline-flex items-center gap-2 rounded-lg border border-error/40 bg-error/10 px-6 py-3 text-sm font-medium text-error transition hover:bg-error/20"
       >
         <Trash2 className="size-4" />
         Delete Account
       </button>
 
       {isOpen && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 p-4 backdrop-blur-sm">
-          <div className="w-full max-w-md rounded-xl border border-red-500/30 bg-slate-900/95 p-6 shadow-2xl">
-            <div className="mb-4 flex size-12 items-center justify-center rounded-full bg-red-500/15">
-              <AlertTriangle className="size-6 text-red-400" />
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-overlay p-4 backdrop-blur-sm">
+          <div role="dialog" aria-modal="true" aria-label="Delete account" className="w-full max-w-md rounded-xl border border-error/30 bg-panel p-6 ">
+            <div className="mb-4 flex size-12 items-center justify-center rounded-full bg-error/15">
+              <AlertTriangle className="size-6 text-error" />
             </div>
 
-            <h3 className="text-xl font-semibold text-white">
+            <h3 className="text-xl font-semibold text-ink">
               Delete Your Account?
             </h3>
-            <p className="mt-3 text-sm leading-relaxed text-slate-400">
-              This action is <strong className="text-white">permanent and cannot be undone</strong>.
+            <p className="mt-3 text-sm leading-relaxed text-muted">
+              This action is <strong className="text-ink">permanent and cannot be undone</strong>.
               All of your data will be immediately deleted.
             </p>
-            <p className="mt-3 text-sm text-slate-400">
+            <p className="mt-3 text-sm text-muted">
               If you sign up again later, you will start with a completely fresh account.
             </p>
 
             {error && (
-              <p className="mt-4 rounded-lg border border-red-500/30 bg-red-500/10 px-3 py-2 text-sm text-red-400">
+              <p className="mt-4 rounded-lg border border-error/30 bg-error/10 px-3 py-2 text-sm text-error">
                 {error}
               </p>
             )}
@@ -69,14 +69,14 @@ export function DeleteAccountButton() {
                   setError(null)
                 }}
                 disabled={isDeleting}
-                className="rounded-lg border border-white/10 bg-white/5 px-4 py-2 text-sm font-medium text-white transition hover:bg-white/10 disabled:opacity-50"
+                className="rounded-lg border border-white/10 bg-white/5 px-4 py-2 text-sm font-medium text-ink transition hover:bg-white/10 disabled:opacity-50"
               >
                 Cancel
               </button>
               <button
                 onClick={handleDelete}
                 disabled={isDeleting}
-                className="inline-flex items-center gap-1.5 rounded-lg bg-red-500 px-4 py-2 text-sm font-medium text-white transition hover:bg-red-600 disabled:opacity-50"
+                className="inline-flex items-center gap-1.5 rounded-lg bg-error px-4 py-2 text-sm font-medium text-ink transition hover:bg-error/80 disabled:opacity-50"
               >
                 {isDeleting ? (
                   <>

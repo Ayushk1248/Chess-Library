@@ -1,0 +1,17 @@
+/* Hallmark · accessible shared foundations */
+@font-face { font-family: 'Source Sans 3'; src: url('/fonts/source-sans-3.ttf') format('truetype'); font-weight: 200 900; font-display: swap; }
+@font-face { font-family: 'Source Serif 4'; src: url('/fonts/source-serif-4.ttf') format('truetype'); font-weight: 200 900; font-display: swap; }
+html, body { overflow-x: clip; }
+html { color-scheme: dark; scrollbar-color: var(--color-rule) var(--color-canvas); scroll-behavior: smooth; }
+body { margin: 0; background: var(--color-canvas); color: var(--color-ink); font-family: var(--font-body); font-size: 16px; line-height: 1.55; font-synthesis: none; }
+button, input, select, textarea { font: inherit; }
+button, a, input, select, textarea, [tabindex] { -webkit-tap-highlight-color: var(--color-transparent); }
+button, a { touch-action: manipulation; }
+button { cursor: pointer; }
+button:disabled { cursor: not-allowed; }
+:focus-visible { outline: 2px solid var(--color-focus) !important; outline-offset: 4px; transition: none !important; }
+h1, h2, h3 { text-wrap: balance; min-width: 0; overflow-wrap: break-word; }
+p { text-wrap: pretty; }
+input { min-width: 0; }
+::selection { background: var(--color-accent); color: var(--color-on-accent); }
+@media (prefers-reduced-motion: reduce) { html { scroll-behavior: auto; } *, *::before, *::after { animation: none !important; transition: none !important; } }

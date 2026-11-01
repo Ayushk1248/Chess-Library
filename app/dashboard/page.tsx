@@ -2,10 +2,13 @@
 "use client";
 
 import { useState, useMemo, useCallback, useEffect, useRef, type FormEvent, type ReactNode } from "react";
+import Link from "next/link";
 import { Chess } from "chess.js";
 import { Chessboard } from "react-chessboard";
 import {
   Plus,
+  Menu,
+  Crown,
   Upload,
   Settings,
   LogOut,
@@ -25,26 +28,12 @@ import { signOutUser } from "@/lib/auth/supabase-auth";
 import { DeleteAccountButton } from "@/components/delete-account-button";
 import { BranchModal, type BranchLine } from "@/components/branch-modal";
 
-const THEMES = {
-  classic: {
-    appBg: "#21201d",
-    sidebarBg: "#262421",
-    accent: "#81b64c",
-    accentHover: "#8bc255",
-    accentText: "#1b2a0f",
-    boardLight: "#ebecd0",
-    boardDark: "#739552",
-  },
-  wood: {
-    appBg: "#3e2f23",
-    sidebarBg: "#4a3626",
-    accent: "#c9a06a",
-    accentHover: "#d6b280",
-    accentText: "#2a1c10",
-    boardLight: "#f0d9b5",
-    boardDark: "#b58863",
-  },
-} as const;
+const WORKSPACE_COLORS = {
+  appBg: "var(--color-canvas)", sidebarBg: "var(--color-panel)",
+  accent: "var(--color-accent)", accentHover: "var(--color-accent-hover)",
+  accentText: "var(--color-on-accent)", boardLight: "var(--color-board-light)",
+  boardDark: "var(--color-board-dark)",
+};
 
 type SessionNode = {
   id: string;
@@ -140,8 +129,9 @@ function groupSavedVariations(nodes: (VariationAncestorNode & { opening_id: stri
 }
 
 export default function DashboardPage() {
-  const { theme, toggleTheme } = useTheme();
-  const colors = THEMES[theme];
+  const { toggleTheme } = useTheme();
+  const colors = WORKSPACE_COLORS;
+  const [libraryOpen, setLibraryOpen] = useState(false);
 
   const [openings, setOpenings] = useState<Opening[]>([]);
   const [variationsByOpening, setVariationsByOpening] = useState<Record<string, SavedVariation[]>>({});
@@ -1010,7 +1000,7 @@ export default function DashboardPage() {
           type="button"
           onClick={() => requestNavigation({ type: "variation", opening, variation })}
           disabled={loadingOpeningId !== null || deletingOpeningId !== null}
-          className="flex w-full min-w-0 items-center rounded-md px-2 py-1.5 text-left text-xs text-zinc-400 transition-colors hover:bg-white/5 hover:text-white disabled:cursor-wait disabled:opacity-60"
+          className="flex w-full min-w-0 items-center rounded-md px-2 py-1.5 text-left text-xs text-muted transition-colors hover:bg-white/5 hover:text-ink disabled:cursor-wait disabled:opacity-60"
         >
           <span className="min-w-0 flex-1 truncate">{variation.variation_name}</span>
         </button>
@@ -1025,13 +1015,16 @@ export default function DashboardPage() {
 
   return (
     <div
-      className="flex h-screen w-full overflow-hidden text-white transition-colors duration-300"
+      className="workspace"
       style={{ backgroundColor: colors.appBg }}
     >
-      <aside
-        className="flex w-72 shrink-0 flex-col border-r border-white/5 transition-colors duration-300"
+      {libraryOpen && <button className="library-backdrop" aria-label="Close library" onClick={() => setLibraryOpen(false)} />}
+      <aside id="repertoire-library"
+        aria-label="Repertoire library"
+        className={`library-panel ${libraryOpen ? "is-open" : ""}`}
         style={{ backgroundColor: colors.sidebarBg }}
       >
+        <div className="library-brand"><Link href="/" className="wordmark"><Crown size={22} /> Chess Library</Link><button className="library-close" aria-label="Close library" onClick={() => setLibraryOpen(false)}><X size={20} /></button></div>
         <div className="p-3">
           <button
             onClick={() => requestNavigation({ type: "new-opening" })}
@@ -1046,18 +1039,18 @@ export default function DashboardPage() {
         </div>
 
         <div className="flex-1 overflow-y-auto px-3">
-          <p className="px-2 pb-2 pt-3 text-xs font-medium uppercase tracking-wide text-zinc-500">
+          <p className="px-2 pb-2 pt-3 text-xs font-medium  text-muted">
             Saved Openings
           </p>
           <nav className="flex flex-col gap-0.5">
             {isLoadingOpenings ? (
-              <p className="px-2 py-2 text-sm text-zinc-500">Loading openings...</p>
+              <p className="px-2 py-2 text-sm text-muted">Loading openings...</p>
             ) : openingListError ? (
-              <p role="alert" className="px-2 py-2 text-sm text-red-400">
+              <p role="alert" className="px-2 py-2 text-sm text-error">
                 {openingListError}
               </p>
             ) : openings.length === 0 ? (
-              <p className="px-2 py-2 text-sm text-zinc-500">No openings yet.</p>
+              <p className="px-2 py-2 text-sm text-muted">No openings yet.</p>
             ) : (
               openings.map((opening) => {
                 const isActive = opening.id === activeOpeningId;
@@ -1081,7 +1074,7 @@ export default function DashboardPage() {
                         disabled={loadingOpeningId !== null || deletingOpeningId !== null}
                         aria-expanded={isExpanded}
                         className={`flex min-w-0 flex-1 items-center justify-between rounded-md px-2.5 py-2 text-left text-sm transition-colors disabled:cursor-wait disabled:opacity-60 ${
-                          isActive ? "text-white" : "text-zinc-400 hover:text-white"
+                          isActive ? "text-ink" : "text-muted hover:text-ink"
                         }`}
                       >
                         <span className="truncate">
@@ -1101,7 +1094,7 @@ export default function DashboardPage() {
                           disabled={isSavingLine || isUntitledVariation || loadingOpeningId !== null}
                           aria-label={`Branch ${opening.name}`}
                           title="Create conditional branch lines from the current position"
-                          className="mr-0.5 shrink-0 rounded p-1 text-zinc-500 opacity-0 transition-colors hover:bg-white/10 hover:text-white focus:opacity-100 group-hover:opacity-100 disabled:cursor-not-allowed disabled:opacity-40"
+                          className="mr-0.5 shrink-0 rounded p-1 text-muted opacity-0 transition-colors hover:bg-white/10 hover:text-ink focus:opacity-100 group-hover:opacity-100 disabled:cursor-not-allowed disabled:opacity-40"
                         >
                           <GitBranch size={14} />
                         </button>
@@ -1112,7 +1105,7 @@ export default function DashboardPage() {
                             type="button"
                             onClick={() => handleDeleteOpening(opening)}
                             disabled={deletingOpeningId !== null}
-                            className="rounded px-1.5 py-1 text-xs font-medium text-red-400 transition-colors hover:bg-red-500/10 disabled:opacity-50"
+                            className="rounded px-1.5 py-1 text-xs font-medium text-error transition-colors hover:bg-error/10 disabled:opacity-50"
                           >
                             {deletingOpeningId === opening.id ? "Deleting..." : "Delete"}
                           </button>
@@ -1121,7 +1114,7 @@ export default function DashboardPage() {
                             onClick={() => setConfirmingDeleteId(null)}
                             disabled={deletingOpeningId !== null}
                             aria-label={`Cancel deleting ${opening.name}`}
-                            className="rounded p-1 text-zinc-400 transition-colors hover:bg-white/10 hover:text-white disabled:opacity-50"
+                            className="rounded p-1 text-muted transition-colors hover:bg-white/10 hover:text-ink disabled:opacity-50"
                           >
                             <X size={14} />
                           </button>
@@ -1136,7 +1129,7 @@ export default function DashboardPage() {
                           disabled={loadingOpeningId !== null || deletingOpeningId !== null}
                           aria-label={`Delete ${opening.name}`}
                           title={`Delete ${opening.name}`}
-                          className="mr-1 shrink-0 rounded p-1 text-zinc-500 opacity-0 transition-colors hover:bg-red-500/10 hover:text-red-400 focus:opacity-100 group-hover:opacity-100 disabled:cursor-not-allowed"
+                          className="mr-1 shrink-0 rounded p-1 text-muted opacity-0 transition-colors hover:bg-error/10 hover:text-error focus:opacity-100 group-hover:opacity-100 disabled:cursor-not-allowed"
                         >
                           <Trash2 size={14} />
                         </button>
@@ -1145,7 +1138,7 @@ export default function DashboardPage() {
                     {isExpanded && (
                       <div className="ml-3 border-l border-white/10 py-1 pl-2">
                         {openingVariations.length === 0 ? (
-                          <p className="px-2 py-1 text-xs text-zinc-500">No saved variations</p>
+                          <p className="px-2 py-1 text-xs text-muted">No saved variations</p>
                         ) : (
                           displayRoots.map((variation) =>
                             renderSavedVariation(opening, variation, openingVariations)
@@ -1159,7 +1152,7 @@ export default function DashboardPage() {
             )}
           </nav>
           {deleteOpeningError && (
-            <p role="alert" className="px-2 py-2 text-sm text-red-400">
+            <p role="alert" className="px-2 py-2 text-sm text-error">
               {deleteOpeningError}
             </p>
           )}
@@ -1167,14 +1160,14 @@ export default function DashboardPage() {
 
         <div className="border-t border-white/5 p-3">
           <div className="flex flex-col gap-0.5">
-            <button className="flex items-center gap-2.5 rounded-md px-2.5 py-2 text-sm text-zinc-400 transition-colors hover:bg-white/5 hover:text-white">
+            <button disabled title="PGN import is not available yet" className="flex items-center gap-2.5 rounded-md px-2.5 py-2 text-sm text-muted disabled:opacity-50">
               <Upload size={16} />
               Import PGN
             </button>
             <button
               type="button"
               onClick={() => setIsSettingsOpen(true)}
-              className="flex items-center gap-2.5 rounded-md px-2.5 py-2 text-sm text-zinc-400 transition-colors hover:bg-white/5 hover:text-white"
+              className="flex items-center gap-2.5 rounded-md px-2.5 py-2 text-sm text-muted transition-colors hover:bg-white/5 hover:text-ink"
             >
               <Settings size={16} />
               Settings
@@ -1183,13 +1176,13 @@ export default function DashboardPage() {
               type="button"
               onClick={handleSignOut}
               disabled={isSigningOut}
-              className="flex items-center gap-2.5 rounded-md px-2.5 py-2 text-sm text-zinc-400 transition-colors hover:bg-white/5 hover:text-red-400 disabled:cursor-wait disabled:opacity-50"
+              className="flex items-center gap-2.5 rounded-md px-2.5 py-2 text-sm text-muted transition-colors hover:bg-white/5 hover:text-error disabled:cursor-wait disabled:opacity-50"
             >
               <LogOut size={16} />
               {isSigningOut ? "Signing Out..." : "Sign Out"}
             </button>
             {signOutError && (
-              <p role="alert" className="px-2.5 py-1 text-xs text-red-400">
+              <p role="alert" className="px-2.5 py-1 text-xs text-error">
                 {signOutError}
               </p>
             )}
@@ -1197,23 +1190,25 @@ export default function DashboardPage() {
         </div>
       </aside>
 
-      <div className="flex flex-1 flex-col overflow-hidden">
+      <div className="study-panel">
         <header
-          className="flex shrink-0 items-center gap-4 border-b border-white/5 px-6 py-3.5 transition-colors duration-300"
+          className="study-toolbar"
           style={{ backgroundColor: colors.appBg }}
         >
+          <button className="library-toggle" aria-label="Toggle library" aria-expanded={libraryOpen} aria-controls="repertoire-library" onClick={() => setLibraryOpen(!libraryOpen)}><Menu size={20} /></button>
           <input
+            aria-label="Opening name"
             type="text"
             value={openingName}
             onChange={(e) => setOpeningName(e.target.value)}
             placeholder="Name your opening..."
-            className="flex-1 bg-transparent text-lg font-medium text-white placeholder:text-zinc-500 focus:outline-none"
+            className="opening-title"
           />
-          <div className="flex items-center gap-2">
+          <div className="study-actions">
             <button
               onClick={handleCancelMove}
               disabled={!lastPathNode || lastPathNode.isSaved || isViewingHistory}
-              className="flex items-center gap-2 rounded-lg border border-white/10 px-3.5 py-2 text-sm text-zinc-300 transition-colors hover:bg-white/5 hover:text-white disabled:cursor-not-allowed disabled:opacity-40"
+              className="flex items-center gap-2 rounded-lg border border-white/10 px-3.5 py-2 text-sm text-secondary transition-colors hover:bg-white/5 hover:text-ink disabled:cursor-not-allowed disabled:opacity-40"
               title="Undo the last unsaved move"
             >
               <Undo2 size={15} />
@@ -1221,14 +1216,14 @@ export default function DashboardPage() {
             </button>
             <button
               onClick={toggleTheme}
-              className="flex items-center gap-2 rounded-lg border border-white/10 px-3.5 py-2 text-sm text-zinc-300 transition-colors hover:bg-white/5 hover:text-white"
+              className="flex items-center gap-2 rounded-lg border border-white/10 px-3.5 py-2 text-sm text-secondary transition-colors hover:bg-white/5 hover:text-ink"
             >
               <Palette size={15} />
               Theme
             </button>
             <button
               onClick={handleFlipBoard}
-              className="flex items-center gap-2 rounded-lg border border-white/10 px-3.5 py-2 text-sm text-zinc-300 transition-colors hover:bg-white/5 hover:text-white"
+              className="flex items-center gap-2 rounded-lg border border-white/10 px-3.5 py-2 text-sm text-secondary transition-colors hover:bg-white/5 hover:text-ink"
             >
               <RefreshCw size={15} />
               Flip Board
@@ -1251,18 +1246,18 @@ export default function DashboardPage() {
           </div>
         </header>
 
-        <div className="flex flex-1 items-center justify-center gap-8 overflow-auto p-8">
-          <div className="flex w-full max-w-[560px] items-center justify-center overflow-hidden rounded-md border border-white/10 shadow-[0_8px_24px_rgba(0,0,0,0.35)]">
+        <div className="study-stage">
+          <div className="study-board">
             <Chessboard options={chessboardOptions} />
           </div>
 
           <div
-            className="hidden h-[560px] w-72 shrink-0 flex-col rounded-lg border border-white/10 transition-colors duration-300 lg:flex"
+            className="move-panel"
             style={{ backgroundColor: colors.sidebarBg }}
           >
             <div className="border-b border-white/5 px-4 py-3">
               <div className="flex items-center justify-between">
-                <p className="text-sm font-medium text-white">Move History</p>
+                <p className="text-sm font-medium text-ink">Move History</p>
                 <div className="flex items-center gap-1">
                   <button
                     type="button"
@@ -1270,11 +1265,11 @@ export default function DashboardPage() {
                     disabled={visibleMoveCount === 0}
                     aria-label="Previous move"
                     title="Previous move"
-                    className="rounded p-1 text-zinc-400 transition-colors hover:bg-white/10 hover:text-white disabled:cursor-not-allowed disabled:opacity-40"
+                    className="rounded p-1 text-muted transition-colors hover:bg-white/10 hover:text-ink disabled:cursor-not-allowed disabled:opacity-40"
                   >
                     <ChevronLeft size={16} />
                   </button>
-                  <span className="min-w-10 text-center text-xs tabular-nums text-zinc-500">
+                  <span className="min-w-10 text-center text-xs tabular-nums text-muted">
                     {visibleMoveCount}/{sanMoves.length}
                   </span>
                   <button
@@ -1283,7 +1278,7 @@ export default function DashboardPage() {
                     disabled={visibleMoveCount === sanMoves.length}
                     aria-label="Next move"
                     title="Next move"
-                    className="rounded p-1 text-zinc-400 transition-colors hover:bg-white/10 hover:text-white disabled:cursor-not-allowed disabled:opacity-40"
+                    className="rounded p-1 text-muted transition-colors hover:bg-white/10 hover:text-ink disabled:cursor-not-allowed disabled:opacity-40"
                   >
                     <ChevronRight size={16} />
                   </button>
@@ -1292,12 +1287,12 @@ export default function DashboardPage() {
             </div>
             <div className="flex-1 overflow-y-auto px-2 py-2">
               {lineError && (
-                <p role="alert" className="px-2 py-2 text-sm text-red-400">
+                <p role="alert" className="px-2 py-2 text-sm text-error">
                   {lineError}
                 </p>
               )}
               {moveRows.length === 0 ? (
-                <p className="px-2 py-2 text-sm text-zinc-500">
+                <p className="px-2 py-2 text-sm text-muted">
                   Play a move on the board to start recording the line.
                 </p>
               ) : (
@@ -1306,25 +1301,25 @@ export default function DashboardPage() {
                     key={move.no}
                     className="group/move grid grid-cols-[28px_1fr_1fr] items-center gap-2 rounded-md px-2 py-1.5 text-sm hover:bg-white/5"
                   >
-                    <span className="text-zinc-500">{move.no}.</span>
+                    <span className="text-muted">{move.no}.</span>
                     <div className="flex min-w-0 items-center gap-0.5">
-                      <span className="truncate text-white">{move.white}</span>
+                      <span className="truncate text-ink">{move.white}</span>
                     </div>
                     <div className="flex min-w-0 items-center gap-0.5">
-                      <span className="truncate text-zinc-300">{move.black ?? ""}</span>
+                      <span className="truncate text-secondary">{move.black ?? ""}</span>
                     </div>
                   </div>
                 ))
               )}
             </div>
             <div className="border-t border-white/5 px-4 py-3">
-              <p className="text-xs text-zinc-500">
-                {sanMoves.length} {sanMoves.length === 1 ? "move" : "moves"} &middot; {activeOpening}
+              <p className="text-xs text-muted">
+                {sanMoves.length} {sanMoves.length === 1 ? "move" : "moves"}: {activeOpening}
               </p>
-              <p className="mt-1 text-xs text-zinc-400">
+              <p className="mt-1 text-xs text-muted">
                 Line: {activeVariationName ?? (isUntitledVariation ? "Untitled variation" : "Main line")}
               </p>
-              <p className="mt-1 text-xs text-zinc-500">
+              <p className="mt-1 text-xs text-muted">
                 {pendingNodeCount} unsaved {pendingNodeCount === 1 ? "move" : "moves"}
               </p>
               {isUntitledVariation && sanMoves.length > 0 && (
@@ -1341,7 +1336,7 @@ export default function DashboardPage() {
                         onChange={(event) => setVariationNameDraft(event.target.value)}
                         placeholder="Variation name"
                         maxLength={100}
-                        className="w-full rounded-md border border-white/10 bg-black/30 px-2.5 py-2 text-sm text-white outline-none placeholder:text-zinc-500 focus:border-white/25"
+                        className="w-full rounded-md border border-white/10 bg-field px-2.5 py-2 text-sm text-ink outline-none placeholder:text-muted focus:border-white/25"
                       />
                       <div className="flex justify-end gap-2">
                         <button
@@ -1352,7 +1347,7 @@ export default function DashboardPage() {
                             setLineError("");
                           }}
                           disabled={isSavingLine}
-                          className="rounded-md border border-white/10 px-2.5 py-1.5 text-xs text-zinc-300 transition-colors hover:bg-white/5 disabled:opacity-50"
+                          className="rounded-md border border-white/10 px-2.5 py-1.5 text-xs text-secondary transition-colors hover:bg-white/5 disabled:opacity-50"
                         >
                           Cancel
                         </button>
@@ -1389,20 +1384,20 @@ export default function DashboardPage() {
       </div>
 
       {isNewOpeningOpen && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 p-4">
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-overlay p-4">
           <section
             role="dialog"
             aria-modal="true"
             aria-labelledby="new-opening-title"
-            className="w-full max-w-md rounded-lg border border-white/10 p-5 shadow-2xl"
+            className="w-full max-w-md rounded-lg border border-white/10 p-5 "
             style={{ backgroundColor: colors.sidebarBg }}
           >
-            <h2 id="new-opening-title" className="text-lg font-semibold text-white">
+            <h2 id="new-opening-title" className="text-lg font-semibold text-ink">
               New Opening
             </h2>
             <form onSubmit={handleCreateOpening} className="mt-4 space-y-4">
               <div>
-                <label htmlFor="new-opening-name" className="mb-1.5 block text-sm text-zinc-300">
+                <label htmlFor="new-opening-name" className="mb-1.5 block text-sm text-secondary">
                   Opening name
                 </label>
                 <input
@@ -1412,11 +1407,11 @@ export default function DashboardPage() {
                   onChange={(event) => setNewOpeningName(event.target.value)}
                   placeholder="e.g. Sicilian Defense"
                   maxLength={100}
-                  className="w-full rounded-lg border border-white/10 bg-black/30 px-3 py-2.5 text-sm text-white outline-none placeholder:text-zinc-500 focus:border-white/25"
+                  className="w-full rounded-lg border border-white/10 bg-field px-3 py-2.5 text-sm text-ink outline-none placeholder:text-muted focus:border-white/25"
                 />
               </div>
               {newOpeningError && (
-                <p role="alert" className="text-sm text-red-400">
+                <p role="alert" className="text-sm text-error">
                   {newOpeningError}
                 </p>
               )}
@@ -1425,7 +1420,7 @@ export default function DashboardPage() {
                   type="button"
                   onClick={() => setIsNewOpeningOpen(false)}
                   disabled={isCreatingOpening}
-                  className="rounded-lg border border-white/10 px-3.5 py-2 text-sm text-zinc-300 transition-colors hover:bg-white/5 disabled:opacity-50"
+                  className="rounded-lg border border-white/10 px-3.5 py-2 text-sm text-secondary transition-colors hover:bg-white/5 disabled:opacity-50"
                 >
                   Cancel
                 </button>
@@ -1464,23 +1459,23 @@ export default function DashboardPage() {
       )}
 
       {isUnsavedVariationOpen && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 p-4">
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-overlay p-4">
           <section
             role="dialog"
             aria-modal="true"
             aria-labelledby="unsaved-variation-title"
-            className="w-full max-w-md rounded-lg border border-white/10 p-5 shadow-2xl"
+            className="w-full max-w-md rounded-lg border border-white/10 p-5 "
             style={{ backgroundColor: colors.sidebarBg }}
           >
-            <h2 id="unsaved-variation-title" className="text-lg font-semibold text-white">
+            <h2 id="unsaved-variation-title" className="text-lg font-semibold text-ink">
               Unsaved Variation
             </h2>
-            <p className="mt-2 text-sm text-zinc-400">
+            <p className="mt-2 text-sm text-muted">
               You have an unsaved variation with {sanMoves.length} {sanMoves.length === 1 ? "move" : "moves"}.
               Save it before continuing?
             </p>
             {lineError && (
-              <p role="alert" className="mt-3 text-sm text-red-400">
+              <p role="alert" className="mt-3 text-sm text-error">
                 {lineError}
               </p>
             )}
@@ -1496,7 +1491,7 @@ export default function DashboardPage() {
                   onChange={(event) => setNavigationVariationName(event.target.value)}
                   placeholder="Variation name"
                   maxLength={100}
-                  className="w-full rounded-lg border border-white/10 bg-black/30 px-3 py-2.5 text-sm text-white outline-none placeholder:text-zinc-500 focus:border-white/25"
+                  className="w-full rounded-lg border border-white/10 bg-field px-3 py-2.5 text-sm text-ink outline-none placeholder:text-muted focus:border-white/25"
                 />
                 <div className="flex justify-end gap-2">
                   <button
@@ -1506,7 +1501,7 @@ export default function DashboardPage() {
                       setLineError("");
                     }}
                     disabled={isSavingLine}
-                    className="rounded-lg border border-white/10 px-3.5 py-2 text-sm text-zinc-300 transition-colors hover:bg-white/5 disabled:opacity-50"
+                    className="rounded-lg border border-white/10 px-3.5 py-2 text-sm text-secondary transition-colors hover:bg-white/5 disabled:opacity-50"
                   >
                     Back
                   </button>
@@ -1529,7 +1524,7 @@ export default function DashboardPage() {
                     setIsUnsavedVariationOpen(false);
                     setLineError("");
                   }}
-                  className="rounded-lg border border-white/10 px-3.5 py-2 text-sm text-zinc-300 transition-colors hover:bg-white/5"
+                  className="rounded-lg border border-white/10 px-3.5 py-2 text-sm text-secondary transition-colors hover:bg-white/5"
                 >
                   Stay
                 </button>
@@ -1537,7 +1532,7 @@ export default function DashboardPage() {
                   type="button"
                   onClick={discardAndContinue}
                   disabled={isSavingLine}
-                  className="rounded-lg border border-red-500/30 px-3.5 py-2 text-sm text-red-400 transition-colors hover:bg-red-500/10 disabled:opacity-50"
+                  className="rounded-lg border border-error/30 px-3.5 py-2 text-sm text-error transition-colors hover:bg-error/10 disabled:opacity-50"
                 >
                   Discard
                 </button>
@@ -1560,33 +1555,33 @@ export default function DashboardPage() {
       )}
 
       {isSettingsOpen && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 p-4">
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-overlay p-4">
           <section
             role="dialog"
             aria-modal="true"
             aria-labelledby="settings-title"
-            className="w-full max-w-lg rounded-lg border border-white/10 p-5 shadow-2xl"
+            className="w-full max-w-lg rounded-lg border border-white/10 p-5 "
             style={{ backgroundColor: colors.sidebarBg }}
           >
             <div className="flex items-start justify-between gap-4">
               <div>
-                <h2 id="settings-title" className="text-lg font-semibold text-white">
+                <h2 id="settings-title" className="text-lg font-semibold text-ink">
                   Settings
                 </h2>
-                <p className="mt-1 text-sm text-zinc-400">Account management</p>
+                <p className="mt-1 text-sm text-muted">Account management</p>
               </div>
               <button
                 type="button"
                 onClick={() => setIsSettingsOpen(false)}
                 aria-label="Close settings"
-                className="rounded p-1 text-zinc-400 transition-colors hover:bg-white/10 hover:text-white"
+                className="rounded p-1 text-muted transition-colors hover:bg-white/10 hover:text-ink"
               >
                 <X size={17} />
               </button>
             </div>
             <div className="mt-5 border-t border-white/10 pt-4">
-              <h3 className="text-sm font-medium text-red-400">Danger Zone</h3>
-              <p className="mt-1 mb-4 text-sm text-zinc-400">
+              <h3 className="text-sm font-medium text-error">Danger Zone</h3>
+              <p className="mt-1 mb-4 text-sm text-muted">
                 Permanently delete your account and its associated data.
               </p>
               <DeleteAccountButton />

@@ -1,5 +1,6 @@
 import type { Metadata } from 'next'
 import './globals.css'
+import { DialogFocus } from '@/components/dialog-focus'
 
 export const metadata: Metadata = {
   title: 'Chess Library',
@@ -17,7 +18,7 @@ export default function RootLayout({
   return (
     <html lang="en">
       <body>
-        <ThemeProvider>{children}</ThemeProvider>
+        <ThemeProvider><DialogFocus />{children}</ThemeProvider>
       </body>
     </html>
   );
