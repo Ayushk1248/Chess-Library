@@ -159,3 +159,92 @@ button.bg-error { color: var(--color-on-accent); }
 .pgn-notation { margin-top: 12px; font-variant-numeric: tabular-nums; color: var(--color-secondary); overflow-wrap: anywhere; }
 .pgn-saved-list { margin-top: 16px; padding-left: 20px; list-style: disc; overflow-wrap: anywhere; }
 @media (max-width: 480px) { .pgn-header, .pgn-content { padding: 20px; } .pgn-footer { padding: 16px 20px; } .pgn-footer button { flex: 1; white-space: nowrap; } }
+
+/* Hallmark branch editor: pinned position, move navigation, draft lines. */
+.branch-dialog { position: fixed; inset: 0; margin: auto; width: min(1120px, calc(100% - 32px)); max-height: 94dvh; padding: 0; border: 1px solid var(--color-rule); border-radius: 12px; background: var(--color-panel); color: var(--color-ink); overflow-y: auto; }
+.branch-dialog::backdrop { background: var(--color-overlay); }
+.branch-header { display: flex; align-items: center; justify-content: space-between; gap: 16px; padding: 20px 24px; border-bottom: 1px solid var(--color-rule); }
+.branch-header h2 { font-size: 24px; font-weight: 600; }
+.branch-header p, .branch-help { font-size: 14px; color: var(--color-muted); }
+.branch-icon { display: inline-flex; align-items: center; justify-content: center; min-width: 44px; min-height: 44px; border-radius: 6px; }
+.branch-icon:hover:not(:disabled), .branch-text-button:hover:not(:disabled) { background: var(--color-raised); }
+.branch-dialog button:disabled { opacity: .5; cursor: not-allowed; }
+.branch-anchor { display: flex; align-items: center; gap: 12px; padding: 16px 24px; background: var(--color-field); border-bottom: 1px solid var(--color-rule); }
+.branch-anchor > svg { color: var(--color-accent); flex-shrink: 0; }
+.branch-anchor > div { flex: 1; min-width: 0; }
+.branch-anchor span { display: block; color: var(--color-muted); font-size: 14px; }
+.branch-anchor strong { display: block; font-size: 16px; font-weight: 600; overflow-wrap: anywhere; }
+.branch-anchor .quiet-action { font-size: 14px; }
+.branch-workspace { display: grid; grid-template-columns: minmax(0, 1.2fr) minmax(0, 1fr); gap: 28px; padding: 24px; align-items: start; }
+.branch-board { width: 100%; max-width: 560px; margin-inline: auto; }
+.branch-board-controls { display: flex; align-items: center; flex-wrap: wrap; gap: 8px; margin-block: 8px; font-variant-numeric: tabular-nums; }
+.branch-text-button { display: inline-flex; align-items: center; gap: 8px; min-height: 44px; padding: 8px; font-size: 14px; }
+.branch-board-controls .branch-text-button { margin-left: auto; }
+.branch-lines-panel { min-width: 0; }
+.branch-lines-title { display: flex; justify-content: space-between; align-items: center; margin-bottom: 16px; gap: 12px; }
+.branch-lines-title h3 { font-size: 20px; font-weight: 600; }
+.branch-lines-title > span { font-size: 14px; color: var(--color-muted); }
+.branch-create-actions { display: flex; flex-wrap: wrap; gap: 8px; margin-bottom: 20px; }
+.branch-create-actions button { font-size: 14px; gap: 8px; padding-inline: 12px; }
+.branch-empty { padding-block: 24px; color: var(--color-muted); }
+.branch-line-list { max-height: 320px; overflow-y: auto; padding: 4px; margin: -4px; }
+.branch-line { border-left: 3px solid var(--color-transparent); padding: 4px 8px; margin-block: 4px; }
+.branch-line.is-active { background: var(--color-field); border-left-color: var(--color-accent); }
+.branch-line-heading { display: flex; justify-content: space-between; align-items: start; }
+.branch-select { text-align: left; min-height: 44px; flex: 1; min-width: 0; overflow-wrap: anywhere; font-weight: 600; }
+.branch-moves { display: flex; flex-wrap: wrap; gap: 4px; padding-bottom: 8px; }
+.branch-moves button { min-height: 44px; padding: 4px 8px; border-radius: 4px; font-size: 14px; font-variant-numeric: tabular-nums; }
+.branch-moves button[aria-pressed="true"] { background: var(--color-accent); color: var(--color-on-accent); }
+.branch-moves button:hover:not([aria-pressed="true"]):not(:disabled) { background: var(--color-raised); }
+.branch-children { margin-left: 16px; padding-left: 8px; border-left: 1px solid var(--color-rule); }
+.branch-line-edit { margin-top: 24px; padding-top: 16px; border-top: 1px solid var(--color-rule); }
+.branch-line-edit label { display: block; margin-bottom: 8px; font-size: 14px; }
+.branch-line-edit input { width: 100%; min-height: 44px; padding: 8px 12px; border: 1px solid var(--color-muted); border-radius: 6px; background: var(--color-field); color: var(--color-ink); }
+.branch-undo { display: flex; align-items: center; flex-wrap: wrap; gap: 12px; font-size: 14px; margin-top: 12px; }
+.branch-undo button { min-height: 44px; text-decoration: underline; }
+.branch-footer { display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 16px; padding: 20px 24px; border-top: 1px solid var(--color-rule); }
+.branch-footer > div, .branch-footer > p { flex: 1; min-width: 160px; }
+.branch-error { color: var(--color-error); font-size: 14px; margin-top: 8px; }
+@media (max-width: 760px) {
+ .branch-workspace { grid-template-columns: minmax(0, 1fr); gap: 24px; padding: 16px; }
+ .branch-header, .branch-anchor, .branch-footer { padding: 16px; }
+ .branch-anchor { flex-wrap: wrap; }
+ .branch-anchor .quiet-action { min-height: 44px; }
+ .branch-board { max-width: 440px; }
+ .branch-line-list { max-height: none; }
+ .branch-create-actions { position: sticky; top: 8px; z-index: 1; padding-block: 8px; background: var(--color-panel); }
+ .branch-footer .primary-action { width: 100%; }
+}
+
+.branch-footer { position: sticky; bottom: 0; z-index: 2; background: var(--color-panel); }
+@media (min-width: 761px) {
+ .branch-board { max-width: min(560px, calc(94dvh - 392px)); }
+ .branch-lines-panel { display: flex; flex-direction: column; max-height: calc(94dvh - 300px); }
+ .branch-line-list { flex: 1; min-height: 96px; }
+ .branch-line-edit { flex-shrink: 0; }
+}
+@media (max-width: 760px) { .branch-anchor > div { min-width: 160px; } .branch-anchor .quiet-action { width: 100%; } }
+
+.opening-heading { flex: 1; min-width: 0; }
+.study-line-name, .history-line-name { color: var(--color-muted); font-size: 14px; margin-top: 4px; overflow-wrap: anywhere; }
+.saved-variation[aria-current="true"] { background: var(--color-raised); color: var(--color-ink); box-shadow: inset 3px 0 var(--color-accent); }
+.history-move { display: block; width: 100%; min-height: 44px; padding: 8px; text-align: left; border-radius: 4px; font-variant-numeric: tabular-nums; overflow-wrap: anywhere; }
+.history-move:hover { background: var(--color-raised); }
+.history-move[aria-pressed="true"] { background: var(--color-accent); color: var(--color-on-accent); font-weight: 600; }
+.move-branch-context { margin-top: 16px; border-top: 1px solid var(--color-rule); padding-top: 12px; }
+.move-branch-context p { font-size: 14px; margin-bottom: 8px; font-weight: 600; }
+.move-branch-context .quiet-action { width: 100%; gap: 8px; font-size: 14px; padding-inline: 8px; }
+.move-branch-context > span { display: block; font-size: 14px; color: var(--color-muted); margin-top: 8px; }
+.move-branch-context button:disabled { opacity: .5; cursor: not-allowed; }
+
+.trim-continuation-button { display: block; width: 100%; min-height: 44px; margin-top: 8px; padding: 8px; font-size: 14px; color: var(--color-error); border-radius: 6px; }
+.trim-continuation-button:hover { background: var(--color-raised); }
+.trim-dialog { position: fixed; inset: 0; margin: auto; width: min(480px, calc(100% - 32px)); max-height: 90dvh; overflow-y: auto; padding: 24px; background: var(--color-panel); color: var(--color-ink); border: 1px solid var(--color-rule); border-radius: 8px; }
+.trim-dialog::backdrop { background: var(--color-overlay); }
+.trim-dialog h2 { font-size: 24px; margin-bottom: 16px; }
+.trim-dialog p { margin-bottom: 12px; }
+.trim-dialog ul { list-style: disc; padding-left: 20px; margin-bottom: 16px; }
+.trim-actions { display: flex; flex-wrap: wrap; justify-content: flex-end; gap: 12px; margin-top: 24px; }
+.trim-actions button:disabled { opacity: .5; cursor: not-allowed; }
+.trim-undo { display: flex; flex-wrap: wrap; align-items: center; gap: 8px; font-size: 14px; margin-top: 12px; }
+.trim-undo button { min-height: 44px; text-decoration: underline; color: var(--color-accent); }

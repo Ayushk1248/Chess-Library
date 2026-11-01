@@ -1,407 +1,170 @@
 "use client";
 
-import { useState, type ReactNode } from "react";
-import { Chess } from "chess.js";
+import { useEffect, useRef, useState, type ReactNode } from "react";
+import { Chess, type Square } from "chess.js";
 import { Chessboard } from "react-chessboard";
-import { ChevronLeft, ChevronRight, GitBranch, Plus, Trash2, X } from "lucide-react";
-
-type BranchModalTheme = {
-  sidebarBg: string;
-  accent: string;
-  accentText: string;
-  boardLight: string;
-  boardDark: string;
-};
-
-export type BranchLine = {
-  id: string;
-  name: string;
-  parentNodeId: string | null;
-  startFen: string;
-  moves: BranchMove[];
-};
-
-export type BranchMove = {
-  id: string;
-  parentNodeId: string | null;
-  moveSan: string;
-  fenAfter: string;
-  moveNumber: number;
-  isMainline: boolean;
-};
+import { ChevronLeft, ChevronRight, GitBranch, Pin, Plus, RotateCcw, Trash2, Undo2, X } from "lucide-react";
+import { activeBranch, branchPosition, newBranch, playBranchMove, removeBranchMoves,
+  type BranchAnchor, type BranchEditor, type BranchLine } from "@/lib/branch-editor";
+export type { BranchLine, BranchMove } from "@/lib/branch-editor";
 
 type BranchModalProps = {
   openingName: string;
+  sourceLineName?: string;
   initialPosition: string;
   parentNodeId: string | null;
   branchContextLabel: string;
-  colors: BranchModalTheme;
+  colors: { sidebarBg: string; accent: string; accentText: string; boardLight: string; boardDark: string };
+  boardOrientation?: "white" | "black";
   onClose: () => void;
   onConfirm: (lines: BranchLine[]) => Promise<void>;
 };
 
-export function BranchModal({
-  openingName,
-  initialPosition,
-  parentNodeId,
-  branchContextLabel,
-  colors,
-  onClose,
-  onConfirm,
-}: BranchModalProps) {
-  const [game] = useState(() => new Chess(initialPosition));
-  const [position, setPosition] = useState(() => game.fen());
-  const [lines, setLines] = useState<BranchLine[]>([]);
-  const [activeLineId, setActiveLineId] = useState<string | null>(null);
-  const [moveIndex, setMoveIndex] = useState(0);
-  const [nextLineNumber, setNextLineNumber] = useState(1);
-  const [lineError, setLineError] = useState("");
-  const [confirmError, setConfirmError] = useState("");
+export function BranchModal({ openingName, sourceLineName, initialPosition, parentNodeId, branchContextLabel,
+  colors, boardOrientation = "white", onClose, onConfirm }: BranchModalProps) {
+  const dialog = useRef<HTMLDialogElement>(null);
+  const rootAnchor: BranchAnchor = { fen: initialPosition, parentNodeId, label: branchContextLabel };
+  const [editor, setEditor] = useState<BranchEditor>(() => ({ anchor: rootAnchor, lines: [], activeLineId: null, moveIndex: 0, nextLineNumber: 1 }));
+  const [undoState, setUndoState] = useState<BranchEditor | null>(null);
+  const [error, setError] = useState("");
   const [isConfirming, setIsConfirming] = useState(false);
-  const activeLine = lines.find((line) => line.id === activeLineId) ?? null;
-  const hasMoves = lines.some((line) => line.moves.length > 0);
-  const allMoves = lines.flatMap((line) => line.moves);
-  const modalParentMove = activeLine?.parentNodeId
-    ? allMoves.find((move) => move.id === activeLine.parentNodeId)
-    : undefined;
-  const branchContext = activeLine && moveIndex > 0
-    ? `move ${activeLine.moves[moveIndex - 1].moveNumber} (${activeLine.moves[moveIndex - 1].moveSan})`
-    : modalParentMove
-      ? `move ${modalParentMove.moveNumber} (${modalParentMove.moveSan})`
-      : branchContextLabel;
+  const [discardPrompt, setDiscardPrompt] = useState(false);
+  const [selectedSquare, setSelectedSquare] = useState<string | null>(null);
+  const activeLine = activeBranch(editor);
+  const current = branchPosition(editor);
+  const populated = editor.lines.filter(line => line.moves.length > 0);
+  const atAnchor = current.fen === editor.anchor.fen && current.parentNodeId === editor.anchor.parentNodeId;
+
+  useEffect(() => {
+    const element = dialog.current;
+    element?.showModal();
+    return () => element?.close();
+  }, []);
+
+  function update(next: BranchEditor) {
+    setUndoState(null);
+    setEditor(next);
+    setSelectedSquare(null);
+    setError("");
+    setDiscardPrompt(false);
+  }
+
+  function requestClose() {
+    if (isConfirming) return;
+    if (populated.length) setDiscardPrompt(true);
+    else onClose();
+  }
+
+  function selectPosition(line: BranchLine, index: number) {
+    if (isConfirming) return;
+    update({ ...editor, activeLineId: line.id, moveIndex: index });
+  }
+
+  function handlePieceDrop({ sourceSquare, targetSquare }: { sourceSquare: string; targetSquare: string | null }) {
+    if (!targetSquare || isConfirming || discardPrompt) return false;
+    try { update(playBranchMove(editor, sourceSquare, targetSquare)); return true; }
+    catch { return false; }
+  }
+
+  function removeLastMove() {
+    if (!activeLine?.moves.length || isConfirming) return;
+    update(removeBranchMoves(editor, new Set([activeLine.moves.at(-1)!.id]), rootAnchor));
+    setUndoState(editor);
+  }
+
+  function deleteLine(line: BranchLine) {
+    if (isConfirming) return;
+    update(removeBranchMoves(editor, new Set(line.moves.map(move => move.id)), rootAnchor, line.id));
+    setUndoState(editor);
+  }
 
   async function handleConfirm() {
-    if (!hasMoves || isConfirming) return;
+    if (isConfirming || !populated.length) return;
+    if (populated.some(line => !line.name.trim())) { setError("Give each line a name before saving."); return; }
     setIsConfirming(true);
-    setConfirmError("");
-
-    try {
-      await onConfirm(lines);
-      onClose();
-    } catch (error) {
-      setConfirmError(error instanceof Error ? error.message : "Could not save these lines.");
-    } finally {
-      setIsConfirming(false);
-    }
+    setError("");
+    setUndoState(null);
+    try { await onConfirm(populated.map(line => ({ ...line, name: line.name.trim() }))); onClose(); }
+    catch (cause) { setError(cause instanceof Error ? cause.message : "Could not save these lines. Your drafts are still here."); }
+    finally { setIsConfirming(false); }
   }
 
-  function loadLinePosition(line: BranchLine, movesToPlay: number) {
-    const replayGame = new Chess(line.startFen);
-    for (const move of line.moves.slice(0, movesToPlay)) {
-      const playedMove = replayGame.move(move.moveSan);
-      if (!playedMove || replayGame.fen() !== move.fenAfter) {
-        throw new Error(`Could not replay ${move.moveSan} in ${line.name}.`);
-      }
-    }
-    game.load(replayGame.fen());
-    setPosition(replayGame.fen());
-    setMoveIndex(movesToPlay);
-  }
-
-  function addLineAtCurrentPosition() {
-    const parentMove = activeLine && moveIndex > 0 ? activeLine.moves[moveIndex - 1] : null;
-    const line: BranchLine = {
-      id: crypto.randomUUID(),
-      name: `Line ${nextLineNumber}`,
-      parentNodeId: parentMove?.id ?? activeLine?.parentNodeId ?? parentNodeId,
-      startFen: position,
-      moves: [],
-    };
-
-    setLines((current) => [...current, line]);
-    setActiveLineId(line.id);
-    setNextLineNumber((number) => number + 1);
-    setMoveIndex(0);
-    setLineError("");
-    return line;
-  }
-
-  function handlePieceDrop({ sourceSquare, targetSquare }: {
-    sourceSquare: string;
-    targetSquare: string | null;
-  }) {
-    if (!targetSquare) return false;
-
-    let line = activeLine;
-    let lineMoves = activeLine?.moves.slice(0, moveIndex) ?? [];
-    const startsFromHistory = activeLine !== null && moveIndex < activeLine.moves.length;
-
-    if (!line || startsFromHistory) {
-      if (startsFromHistory) {
-      try {
-        const probeGame = new Chess(position);
-        if (!probeGame.move({ from: sourceSquare, to: targetSquare, promotion: "q" })) {
-          return false;
-        }
-      } catch {
-        return false;
-      }
-      }
-
-      line = addLineAtCurrentPosition();
-      lineMoves = [];
-      if (startsFromHistory) game.load(position);
-    }
-
-    if (!line) return false;
-
-    try {
-      const move = game.move({ from: sourceSquare, to: targetSquare, promotion: "q" });
-      if (!move) return false;
-
-      const branchMove: BranchMove = {
-        id: crypto.randomUUID(),
-        parentNodeId: lineMoves.at(-1)?.id ?? line.parentNodeId,
-        moveSan: move.san,
-        fenAfter: game.fen(),
-        moveNumber: Math.max(1, game.moveNumber() - (game.turn() === "b" ? 1 : 0)),
-        isMainline: lineMoves.length > 0,
-      };
-      const nextLine = { ...line, moves: [...lineMoves, branchMove] };
-
-      setLines((current) => current.some((item) => item.id === nextLine.id)
-        ? current.map((item) => item.id === nextLine.id ? nextLine : item)
-        : [...current, nextLine]);
-      setMoveIndex(nextLine.moves.length);
-      setPosition(game.fen());
-      setLineError("");
-      return true;
-    } catch {
-      return false;
-    }
-  }
-
-  function handleSelectLine(line: BranchLine) {
-    setActiveLineId(line.id);
-    setLineError("");
-    try {
-      loadLinePosition(line, line.moves.length);
-    } catch (error) {
-      setLineError(error instanceof Error ? error.message : "Could not load this line.");
-    }
-  }
-
-  function handleNavigateMove(step: number) {
-    if (!activeLine) return;
-    const nextIndex = Math.max(0, Math.min(activeLine.moves.length, moveIndex + step));
-    try {
-      loadLinePosition(activeLine, nextIndex);
-      setLineError("");
-    } catch (error) {
-      setLineError(error instanceof Error ? error.message : "Could not navigate this line.");
-    }
-  }
-
-  function handleDeleteMove() {
-    if (!activeLine) return;
-    const removedMove = activeLine.moves.at(-1);
-    if (!removedMove) return;
-
-    const removedIds = new Set([removedMove.id]);
-    let foundChild = true;
-    while (foundChild) {
-      foundChild = false;
-      for (const line of lines) {
-        for (const move of line.moves) {
-          if (move.parentNodeId && removedIds.has(move.parentNodeId) && !removedIds.has(move.id)) {
-            removedIds.add(move.id);
-            foundChild = true;
-          }
-        }
-      }
-    }
-
-    const remainingLines = lines
-      .filter((line) => !line.parentNodeId || !removedIds.has(line.parentNodeId))
-      .map((line) => ({
-        ...line,
-        moves: line.moves.filter((move) => !removedIds.has(move.id)),
-      }));
-    const updatedLine = remainingLines.find((line) => line.id === activeLine.id);
-
-    setLines(remainingLines);
-    setLineError("");
-    if (updatedLine) {
-      try {
-        loadLinePosition(updatedLine, updatedLine.moves.length);
-      } catch (error) {
-        setLineError(error instanceof Error ? error.message : "Could not delete this move.");
-      }
-    }
-  }
-
-  function findParentLineId(line: BranchLine) {
-    if (!line.parentNodeId) return null;
-    return lines.find((candidate) =>
-      candidate.id !== line.id && candidate.moves.some((move) => move.id === line.parentNodeId)
-    )?.id ?? null;
+  function parentLineId(line: BranchLine) {
+    return editor.lines.find(candidate => candidate.id !== line.id && candidate.moves.some(move => move.id === line.parentNodeId))?.id ?? null;
   }
 
   function renderLine(line: BranchLine, ancestors = new Set<string>()): ReactNode {
     if (ancestors.has(line.id)) return null;
-    const nextAncestors = new Set(ancestors);
-    nextAncestors.add(line.id);
-    const children = lines.filter((candidate) => findParentLineId(candidate) === line.id);
-
-    return (
-      <div key={line.id}>
-        <button
-          type="button"
-          onClick={() => handleSelectLine(line)}
-          className={`w-full rounded-md px-2 py-2 text-left text-sm transition-colors ${
-            line.id === activeLineId ? "bg-white/5 text-ink" : "text-secondary hover:bg-white/5"
-          }`}
-        >
-          <div className="flex items-center justify-between">
-            <span>{line.name}</span>
-            <span className="text-xs text-muted">{line.moves.length} moves</span>
-          </div>
-          <p className="mt-1 text-xs text-muted">
-            {line.moves.length === 0 ? "No moves yet" : line.moves.map((move) => move.moveSan).join(" ")}
-          </p>
-        </button>
-        {children.length > 0 && (
-          <div className="ml-3 border-l border-white/10 pl-2">
-            {children.map((child) => renderLine(child, nextAncestors))}
-          </div>
-        )}
+    const visited = new Set(ancestors).add(line.id);
+    const children = editor.lines.filter(candidate => parentLineId(candidate) === line.id);
+    return <div className="branch-tree-item" key={line.id}>
+      <div className={`branch-line ${activeLine?.id === line.id ? "is-active" : ""}`}>
+        <div className="branch-line-heading">
+          <button type="button" className="branch-select" disabled={isConfirming} onClick={() => selectPosition(line, line.moves.length)} aria-pressed={activeLine?.id === line.id}>{line.name}</button>
+          <button type="button" className="branch-icon" disabled={isConfirming} aria-label={`Delete ${line.name}`} onClick={() => deleteLine(line)}><Trash2 size={16} /></button>
+        </div>
+        <div className="branch-moves" aria-label={`${line.name} moves`}>
+          <button type="button" disabled={isConfirming} aria-pressed={activeLine?.id === line.id && editor.moveIndex === 0} onClick={() => selectPosition(line, 0)}>Start</button>
+          {line.moves.map((move, index) => <button type="button" key={move.id} disabled={isConfirming} aria-pressed={activeLine?.id === line.id && editor.moveIndex === index + 1}
+            onClick={() => selectPosition(line, index + 1)}>{move.moveNumber}{new Chess(move.fenAfter).turn() === "b" ? "." : "..."} {move.moveSan}</button>)}
+        </div>
+        {!line.moves.length && <p className="branch-help">Play a move to build this line.</p>}
       </div>
-    );
+      {children.length > 0 && <div className="branch-children">{children.map(child => renderLine(child, visited))}</div>}
+    </div>;
   }
 
-  const chessboardOptions = {
-    position,
-    onPieceDrop: handlePieceDrop,
-    allowDragging: true,
-    boardOrientation: "white" as const,
-    darkSquareStyle: { backgroundColor: colors.boardDark },
-    lightSquareStyle: { backgroundColor: colors.boardLight },
-    boardStyle: { borderRadius: "0px" },
-    allowDrawingArrows: true,
-  };
-
-  return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center overflow-y-auto bg-overlay p-4">
-      <section
-        role="dialog"
-        aria-modal="true"
-        aria-labelledby="branch-modal-title"
-        className="my-auto flex max-h-[95vh] w-full max-w-5xl flex-col overflow-hidden rounded-lg border border-white/10 "
-        style={{ backgroundColor: colors.sidebarBg }}
-      >
-        <header className="flex items-center justify-between border-b border-white/10 px-5 py-3">
-          <div className="flex items-center gap-2.5">
-            <GitBranch size={17} className="text-muted" />
-            <div>
-              <h2 id="branch-modal-title" className="text-base font-semibold text-ink">
-                Branch
-              </h2>
-              <p className="text-xs text-muted">{openingName}</p>
-            </div>
-          </div>
-          <button
-            type="button"
-            onClick={onClose}
-            disabled={isConfirming}
-            aria-label="Discard branches and close"
-            title="Close without saving"
-            className="rounded p-1.5 text-muted transition-colors hover:bg-white/10 hover:text-ink"
-          >
-            <X size={17} />
-          </button>
-        </header>
-
-        <div className="grid min-h-0 flex-1 gap-5 overflow-y-auto p-5 lg:grid-cols-[minmax(0,1fr)_260px]">
-          <div className="flex min-h-[280px] items-center justify-center">
-            <div className="w-full max-w-[480px] overflow-hidden rounded-md border border-white/10">
-              <Chessboard options={chessboardOptions} />
-            </div>
-          </div>
-
-          <aside className="flex min-h-[220px] flex-col border-t border-white/10 pt-4 lg:min-h-0 lg:border-l lg:border-t-0 lg:pl-4 lg:pt-0">
-            <div className="flex items-center justify-between border-b border-white/10 pb-3">
-              <p className="text-sm font-medium text-ink">Conditional Lines</p>
-              <div className="flex items-center gap-1">
-                <button
-                  type="button"
-                  onClick={() => handleNavigateMove(-1)}
-                  disabled={!activeLine || moveIndex === 0}
-                  aria-label="Previous move"
-                  title="Previous move"
-                  className="rounded p-1 text-muted transition-colors hover:bg-white/10 hover:text-ink disabled:cursor-not-allowed disabled:opacity-40"
-                >
-                  <ChevronLeft size={16} />
-                </button>
-                <span className="min-w-10 text-center text-xs tabular-nums text-muted">
-                  {moveIndex}/{activeLine?.moves.length ?? 0}
-                </span>
-                <button
-                  type="button"
-                  onClick={() => handleNavigateMove(1)}
-                  disabled={!activeLine || moveIndex === activeLine.moves.length}
-                  aria-label="Next move"
-                  title="Next move"
-                  className="rounded p-1 text-muted transition-colors hover:bg-white/10 hover:text-ink disabled:cursor-not-allowed disabled:opacity-40"
-                >
-                  <ChevronRight size={16} />
-                </button>
-              </div>
-            </div>
-
-            <div className="flex-1 overflow-y-auto py-2">
-              {confirmError && (
-                <p role="alert" className="px-2 py-2 text-xs text-error">{confirmError}</p>
-              )}
-              {lineError && (
-                <p role="alert" className="px-2 py-2 text-xs text-error">{lineError}</p>
-              )}
-              {lines.length === 0 && !confirmError && !lineError && (
-                <p className="px-2 py-2 text-xs text-muted">No lines yet. Add a line or play a move.</p>
-              )}
-              {(lines.filter((line) => findParentLineId(line) === null).length > 0
-                ? lines.filter((line) => findParentLineId(line) === null)
-                : lines
-              ).map((line) => renderLine(line))}
-            </div>
-
-            <div className="flex flex-wrap items-start gap-3 border-t border-white/10 pt-3">
-              <div className="flex min-w-0 flex-col items-start gap-1">
-                <button
-                  type="button"
-                  onClick={addLineAtCurrentPosition}
-                  className="inline-flex items-center gap-1.5 rounded-md border border-white/10 px-3 py-2 text-sm text-secondary transition-colors hover:bg-white/5 hover:text-ink"
-                >
-                  <Plus size={14} />
-                  Add Line
-                </button>
-                <p className="max-w-full truncate px-1 text-xs text-muted">
-                  Branches from: {branchContext}
-                </p>
-              </div>
-              <div className="ml-auto flex flex-wrap justify-end gap-2">
-                <button
-                  type="button"
-                  onClick={handleDeleteMove}
-                  disabled={!activeLine || activeLine.moves.length === 0}
-                  className="inline-flex items-center gap-1.5 rounded-md border border-white/10 px-3 py-2 text-sm text-secondary transition-colors hover:bg-white/5 hover:text-ink disabled:cursor-not-allowed disabled:opacity-40"
-                >
-                  <Trash2 size={14} />
-                  Delete Move
-                </button>
-                <button
-                  type="button"
-                  onClick={handleConfirm}
-                  disabled={!hasMoves || isConfirming}
-                  className="rounded-md px-3.5 py-2 text-sm font-medium transition-opacity disabled:cursor-not-allowed disabled:opacity-40"
-                  style={{ backgroundColor: colors.accent, color: colors.accentText }}
-                >
-                  {isConfirming ? "Saving..." : "Confirm"}
-                </button>
-              </div>
-            </div>
-          </aside>
-        </div>
-      </section>
+  return <dialog ref={dialog} role="dialog" className="branch-dialog" aria-labelledby="branch-modal-title" aria-busy={isConfirming}
+    onCancel={event => { event.preventDefault(); requestClose(); }}
+    onClick={event => { if (event.target === event.currentTarget) requestClose(); }}>
+    <header className="branch-header">
+      <div><h2 id="branch-modal-title">Branch from {sourceLineName ?? openingName}</h2><p>{sourceLineName ? openingName : "Create alternatives from a selected move"}</p></div>
+      <button type="button" onClick={requestClose} disabled={isConfirming} aria-label="Close branch editor" className="branch-icon"><X size={20} /></button>
+    </header>
+    <div className="branch-anchor">
+      <Pin size={18} aria-hidden="true" /><div><span>New lines start here</span><strong>{editor.anchor.label}</strong></div>
+      <button type="button" className="quiet-action" disabled={atAnchor || isConfirming || discardPrompt} onClick={() => update({ ...editor, anchor: current })}>Pin current position</button>
     </div>
-  );
+    <div className="branch-workspace">
+      <section className="branch-board-column" aria-label="Variation board">
+        <div className="branch-board"><Chessboard options={{ id: "branch-editor-board", position: current.fen, onPieceDrop: handlePieceDrop,
+          allowDragging: !isConfirming && !discardPrompt, boardOrientation,
+          onSquareClick: ({ square }) => {
+            if (isConfirming || discardPrompt) return;
+            if (selectedSquare && handlePieceDrop({ sourceSquare: selectedSquare, targetSquare: square })) return;
+            const game = new Chess(current.fen);
+            setSelectedSquare(game.get(square as Square)?.color === game.turn() ? square : null);
+          },
+          squareStyles: selectedSquare ? { [selectedSquare]: { backgroundColor: "var(--color-accent)" } } : {},
+          darkSquareStyle: { backgroundColor: colors.boardDark }, lightSquareStyle: { backgroundColor: colors.boardLight },
+          allowDrawingArrows: true, animationDurationInMs: 120 }} /></div>
+        <div className="branch-board-controls">
+          <button type="button" className="branch-icon" aria-label="Previous move in line" disabled={!activeLine || editor.moveIndex === 0 || isConfirming} onClick={() => selectPosition(activeLine!, editor.moveIndex - 1)}><ChevronLeft size={20} /></button>
+          <span>{editor.moveIndex} / {activeLine?.moves.length ?? 0}</span>
+          <button type="button" className="branch-icon" aria-label="Next move in line" disabled={!activeLine || editor.moveIndex === activeLine.moves.length || isConfirming} onClick={() => selectPosition(activeLine!, editor.moveIndex + 1)}><ChevronRight size={20} /></button>
+          <button type="button" className="branch-text-button" disabled={isConfirming || atAnchor} onClick={() => update({ ...editor, activeLineId: null, moveIndex: 0 })}><RotateCcw size={16} /> Back to anchor</button>
+        </div>
+        <p className="branch-help">Click a piece and its destination, or drag to move.</p>
+      </section>
+      <aside className="branch-lines-panel" aria-label="Draft variations">
+        <div className="branch-lines-title"><h3>Your lines</h3><span>{populated.length} drafts</span></div>
+        <div className="branch-create-actions">
+          <button type="button" className="primary-action" disabled={isConfirming || discardPrompt} onClick={() => update(newBranch(editor))}><Plus size={16} /> New line from anchor</button>
+          <button type="button" className="quiet-action" disabled={!activeLine || isConfirming || discardPrompt} onClick={() => update(newBranch(editor, current))}><GitBranch size={16} /> Branch here</button>
+        </div>
+        {!editor.lines.length && <p className="branch-empty">Play a continuation on the board. Add another line to try an alternative from your pinned position.</p>}
+        <div className="branch-line-list">{editor.lines.filter(line => parentLineId(line) === null).map(line => renderLine(line))}</div>
+        {activeLine && <div className="branch-line-edit"><label htmlFor="branch-line-name">Line name</label><input id="branch-line-name" value={activeLine.name} maxLength={100} disabled={isConfirming}
+          onChange={event => { setUndoState(null); setEditor({ ...editor, lines: editor.lines.map(line => line.id === activeLine.id ? { ...line, name: event.target.value } : line) }); }} />
+          <button type="button" className="branch-text-button" disabled={!activeLine.moves.length || editor.moveIndex !== activeLine.moves.length || isConfirming} onClick={removeLastMove}><Undo2 size={16} /> Undo last move</button></div>}
+        {undoState && <div className="branch-undo" role="status">Draft removed.<button type="button" disabled={isConfirming} onClick={() => { update(undoState); setUndoState(null); }}>Undo removal</button></div>}
+      </aside>
+    </div>
+    <footer className="branch-footer">
+      {discardPrompt ? <><p>Discard all draft lines?</p><button type="button" className="quiet-action" onClick={() => setDiscardPrompt(false)}>Keep editing</button><button type="button" className="quiet-action" onClick={onClose}>Discard drafts</button></> : <>
+        <div><p className="branch-help">Drafts are saved together when you confirm.</p>{error && <p role="alert" className="branch-error">{error}</p>}</div>
+        <button type="button" className="primary-action" disabled={!populated.length || isConfirming} onClick={handleConfirm}>{isConfirming ? "Saving..." : "Save all lines"}</button>
+      </>}
+    </footer>
+  </dialog>;
 }

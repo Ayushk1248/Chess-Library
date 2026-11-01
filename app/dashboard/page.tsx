@@ -4,6 +4,9 @@
 import { useState, useMemo, useCallback, useEffect, useRef, type FormEvent, type ReactNode } from "react";
 import Link from "next/link";
 import { Chess } from "chess.js";
+import { continuationToRemove } from "@/lib/repertoire-trim";
+import { TrimContinuationDialog } from "@/components/trim-continuation-dialog";
+import { moveLabel, repertoireMoveRows, repertoirePosition } from "@/lib/repertoire-navigation";
 import { Chessboard } from "react-chessboard";
 import {
   Plus,
@@ -47,6 +50,16 @@ type SessionNode = {
   isSaved: boolean;
 };
 
+type ContinuationRemoval = {
+  openingId: string;
+  removed: SessionNode[];
+  previousPath: string[];
+  previousLineStart: number;
+  previousVariation: string | null;
+  previousViewed: number | null;
+  label: string;
+};
+
 type Opening = {
   id: string;
   name: string;
@@ -73,26 +86,6 @@ type PendingNavigation =
   | { type: "new-opening" }
   | { type: "delete-opening"; opening: Opening }
   | { type: "sign-out" };
-
-function groupMoves(sanMoves: string[]) {
-  const rows: {
-    no: number;
-    white: string;
-    whiteIndex: number;
-    black?: string;
-    blackIndex?: number;
-  }[] = [];
-  for (let i = 0; i < sanMoves.length; i += 2) {
-    rows.push({
-      no: i / 2 + 1,
-      white: sanMoves[i],
-      whiteIndex: i,
-      black: sanMoves[i + 1],
-      blackIndex: i + 1,
-    });
-  }
-  return rows;
-}
 
 function findParentVariationId(
   parentNodeId: string | null,
@@ -177,6 +170,9 @@ export default function DashboardPage() {
   const [isSavingLine, setIsSavingLine] = useState(false);
   const [lineError, setLineError] = useState("");
   const [viewedMoveCount, setViewedMoveCount] = useState<number | null>(null);
+  const [trimPlan, setTrimPlan] = useState<ContinuationRemoval | null>(null);
+  const [removalUndo, setRemovalUndo] = useState<ContinuationRemoval | null>(null);
+  const [trimError, setTrimError] = useState("");
 
   useEffect(() => {
     let isMounted = true;
@@ -259,7 +255,7 @@ export default function DashboardPage() {
 
   const onPieceDrop = useCallback(
     ({ sourceSquare, targetSquare }: { sourceSquare: string; targetSquare: string | null }) => {
-      if (!targetSquare || viewedMoveCount !== null) return false;
+      if (!targetSquare || viewedMoveCount !== null || isSavingLine) return false;
       try {
         const move = game.move({ from: sourceSquare, to: targetSquare, promotion: "q" });
         if (move === null) return false;
@@ -273,6 +269,7 @@ export default function DashboardPage() {
           variation_name: null,
           isSaved: false,
         };
+        setRemovalUndo(null);
         setSessionNodes((nodes) => [...nodes, node]);
         setCurrentPath((path) => [...path, node.id]);
         setPosition(game.fen());
@@ -284,30 +281,94 @@ export default function DashboardPage() {
         return false;
       }
     },
-    [currentPath, game, isVariationLine, viewedMoveCount]
+    [currentPath, game, isVariationLine, viewedMoveCount, isSavingLine]
   );
 
-  function handleNavigateMove(step: number) {
-    const nextMoveCount = Math.max(
-      0,
-      Math.min(sanMoves.length, visibleMoveCount + step)
-    );
-    const replayGame = new Chess();
-
+  function handleSelectMove(moveCount: number) {
     try {
-      for (const node of currentPathNodes.slice(0, activeLineStartIndex + nextMoveCount)) {
-        const move = replayGame.move(node.move_san);
-        if (!move || replayGame.fen() !== node.fen_after) {
-          throw new Error(`Could not replay saved move ${node.move_san}.`);
-        }
-      }
-
-      setPosition(replayGame.fen());
-      setViewedMoveCount(nextMoveCount === sanMoves.length ? null : nextMoveCount);
+      const selected = repertoirePosition(currentPathNodes, activeLineStartIndex, moveCount);
+      setPosition(selected.fen);
+      setViewedMoveCount(selected.count === sanMoves.length ? null : selected.count);
       setLineError("");
     } catch (error) {
       setLineError(error instanceof Error ? error.message : "Could not navigate this line.");
     }
+  }
+
+  function handleNavigateMove(step: number) {
+    handleSelectMove(visibleMoveCount + step);
+  }
+
+  function requestTrimContinuation() {
+    if (!activeOpeningId || pendingNodeCount > 0 || isSavingLine) return;
+    try {
+      const removed = continuationToRemove(sessionNodes, currentPath, activeLineStartIndex + visibleMoveCount);
+      if (!removed.length) return;
+      const selected = repertoirePosition(currentPathNodes, activeLineStartIndex, visibleMoveCount);
+      setTrimError("");
+      setTrimPlan({ openingId: activeOpeningId, removed, previousPath: [...currentPath],
+        previousLineStart: activeLineStartIndex, previousVariation: activeVariationName,
+        previousViewed: viewedMoveCount, label: selected.label });
+    } catch (error) { setLineError(error instanceof Error ? error.message : "Could not select the continuation."); }
+  }
+
+  function applySavedPath(nodes: SessionNode[], path: string[], lineStart: number, variation: string | null, viewed: number | null = null) {
+    const pathNodes = path.map(id => nodes.find(node => node.id === id)).filter((node): node is SessionNode => Boolean(node));
+    game.reset();
+    for (const node of pathNodes) game.move(node.move_san);
+    setSessionNodes(nodes);
+    setCurrentPath(path);
+    setActiveLineStartIndex(lineStart);
+    setActiveVariationName(variation);
+    setViewedMoveCount(viewed);
+    setPosition(viewed === null ? game.fen() : repertoirePosition(pathNodes, lineStart, viewed).fen);
+    setIsUntitledVariation(false);
+    setIsVariationLine(false);
+    setIsNamingVariation(false);
+    setVariationNameDraft("");
+    const grouped = groupSavedVariations(nodes.map(node => ({ ...node, opening_id: activeOpeningId! })));
+    setVariationsByOpening(current => ({ ...current, [activeOpeningId!]: grouped[activeOpeningId!] ?? [] }));
+  }
+
+  async function confirmTrimContinuation() {
+    if (!trimPlan || !supabaseBrowser || isSavingLine || trimPlan.openingId !== activeOpeningId) return;
+    setIsSavingLine(true);
+    setTrimError("");
+    try {
+      const root = trimPlan.previousPath[trimPlan.previousLineStart + (trimPlan.previousViewed ?? (trimPlan.previousPath.length - trimPlan.previousLineStart))];
+      const { data, error } = await supabaseBrowser.from("opening_nodes").delete()
+        .eq("opening_id", trimPlan.openingId).eq("id", root).select("id");
+      if (error) throw error;
+      if (!data?.length) throw new Error("This continuation has changed. Reload the opening and try again.");
+      const removedIds = new Set(trimPlan.removed.map(node => node.id));
+      const remaining = sessionNodes.filter(node => !removedIds.has(node.id));
+      const keptPath = currentPath.filter(id => !removedIds.has(id));
+      const nearestVariation = keptPath.map(id => remaining.find(node => node.id === id)).findLast(node => node?.variation_name);
+      const start = nearestVariation ? keptPath.indexOf(nearestVariation.id) : 0;
+      applySavedPath(remaining, keptPath, start, nearestVariation?.variation_name ?? null);
+      setRemovalUndo(trimPlan);
+      setTrimPlan(null);
+      setLineError("");
+    } catch (error) { setTrimError(error instanceof Error ? error.message : "Could not remove this continuation. Nothing changed locally."); }
+    finally { setIsSavingLine(false); }
+  }
+
+  async function undoTrimContinuation() {
+    if (!removalUndo || !supabaseBrowser || isSavingLine || removalUndo.openingId !== activeOpeningId) return;
+    setIsSavingLine(true);
+    setLineError("");
+    try {
+      const { error } = await supabaseBrowser.from("opening_nodes").insert(removalUndo.removed.map(node => ({
+        id: node.id, opening_id: removalUndo.openingId, parent_node_id: node.parent_node_id,
+        move_san: node.move_san, fen_after: node.fen_after, move_number: node.move_number,
+        is_mainline: node.is_mainline, variation_name: node.variation_name,
+      })));
+      if (error) throw error;
+      const nodes = [...sessionNodes, ...removalUndo.removed];
+      applySavedPath(nodes, removalUndo.previousPath, removalUndo.previousLineStart, removalUndo.previousVariation, removalUndo.previousViewed);
+      setRemovalUndo(null);
+    } catch (error) { setLineError(error instanceof Error ? error.message : "Could not restore the continuation. You can retry Undo."); }
+    finally { setIsSavingLine(false); }
   }
 
   function handleCancelMove() {
@@ -336,6 +397,7 @@ export default function DashboardPage() {
   }
 
   async function handleSaveLine(variationName?: string) {
+    setRemovalUndo(null);
     if (!activeOpeningId || !supabaseBrowser || pendingNodeCount === 0) return false;
 
     const name = variationName?.trim();
@@ -476,6 +538,8 @@ export default function DashboardPage() {
   }
 
   function requestNavigation(action: PendingNavigation) {
+    if (isSavingLine) return;
+    setRemovalUndo(null);
     if (isUntitledVariation && sanMoves.length > 0) {
       setPendingNavigation(action);
       setIsUnsavedVariationOpen(true);
@@ -802,17 +866,19 @@ export default function DashboardPage() {
   };
 
   function handleOpenBranchModal() {
-    const parentIndex = activeLineStartIndex + visibleMoveCount - 1;
-    const parentNode = parentIndex >= 0 ? currentPathNodes[parentIndex] : undefined;
-    setBranchInitialPosition(position);
-    setBranchParentNodeId(parentNode?.id ?? null);
-    setBranchContextLabel(
-      parentNode ? `move ${parentNode.move_number} (${parentNode.move_san})` : "starting position"
-    );
-    setIsBranchModalOpen(true);
+    try {
+      const selected = repertoirePosition(currentPathNodes, activeLineStartIndex, visibleMoveCount);
+      setBranchInitialPosition(selected.fen);
+      setBranchParentNodeId(selected.parentNodeId);
+      setBranchContextLabel(selected.label);
+      setIsBranchModalOpen(true);
+    } catch (error) {
+      setLineError(error instanceof Error ? error.message : "Could not open this position.");
+    }
   }
 
   async function handleConfirmBranchLines(lines: BranchLine[]) {
+    setRemovalUndo(null);
     if (!activeOpeningId || !supabaseBrowser) {
       throw new Error("Select an opening before saving branch lines.");
     }
@@ -986,12 +1052,14 @@ export default function DashboardPage() {
     }
   }
 
-  const moveRows = groupMoves(sanMoves);
+  const lineNodes = currentPathNodes.slice(activeLineStartIndex);
+  const moveRows = repertoireMoveRows(lineNodes);
+  const selectedMove = currentPathNodes[activeLineStartIndex + visibleMoveCount - 1];
 
   const chessboardOptions = {
     position,
     onPieceDrop,
-    allowDragging: !isViewingHistory,
+    allowDragging: !isViewingHistory && !isSavingLine,
     boardOrientation: orientation,
     darkSquareStyle: { backgroundColor: colors.boardDark },
     lightSquareStyle: { backgroundColor: colors.boardLight },
@@ -1016,7 +1084,8 @@ export default function DashboardPage() {
           type="button"
           onClick={() => requestNavigation({ type: "variation", opening, variation })}
           disabled={loadingOpeningId !== null || deletingOpeningId !== null}
-          className="flex w-full min-w-0 items-center rounded-md px-2 py-1.5 text-left text-xs text-muted transition-colors hover:bg-white/5 hover:text-ink disabled:cursor-wait disabled:opacity-60"
+          aria-current={activeVariationName && activeOpeningId === opening.id && currentPath[activeLineStartIndex] === variation.id ? "true" : undefined}
+          className="saved-variation flex w-full min-w-0 items-center rounded-md px-2 py-1.5 text-left text-xs text-muted transition-colors hover:bg-white/5 hover:text-ink disabled:cursor-wait disabled:opacity-60"
         >
           <span className="min-w-0 flex-1 truncate">{variation.variation_name}</span>
         </button>
@@ -1212,7 +1281,7 @@ export default function DashboardPage() {
           style={{ backgroundColor: colors.appBg }}
         >
           <button className="library-toggle" aria-label="Toggle library" aria-expanded={libraryOpen} aria-controls="repertoire-library" onClick={() => setLibraryOpen(!libraryOpen)}><Menu size={20} /></button>
-          <h1 className="opening-title">{activeOpening || "Select an opening"}</h1>
+          <div className="opening-heading"><h1 className="opening-title">{activeOpening || "Select an opening"}</h1>{activeOpening && <p className="study-line-name">{activeVariationName ?? "Main line"}</p>}</div>
           <div className="study-actions">
             <button
               onClick={handleCancelMove}
@@ -1250,7 +1319,7 @@ export default function DashboardPage() {
               onMouseLeave={(e) => (e.currentTarget.style.backgroundColor = colors.accent)}
             >
               <Save size={15} />
-              {isSavingLine ? "Saving..." : "Save Line"}
+              {isSavingLine ? "Saving..." : activeVariationName || isUntitledVariation ? "Save variation" : "Save main line"}
             </button>
           </div>
         </header>
@@ -1266,7 +1335,7 @@ export default function DashboardPage() {
           >
             <div className="border-b border-white/5 px-4 py-3">
               <div className="flex items-center justify-between">
-                <p className="text-sm font-medium text-ink">Move History</p>
+                <div><p className="text-sm font-medium text-ink">Move History</p>{activeVariationName && <p className="history-line-name">{activeVariationName}</p>}</div>
                 <div className="flex items-center gap-1">
                   <button
                     type="button"
@@ -1293,6 +1362,17 @@ export default function DashboardPage() {
                   </button>
                 </div>
               </div>
+              {activeOpeningId && <div className="move-branch-context">
+                <p>{selectedMove ? `After ${moveLabel(selectedMove)}` : "Starting position"}</p>
+                <button type="button" className="quiet-action" onClick={handleOpenBranchModal}
+                  disabled={isSavingLine || isUntitledVariation || loadingOpeningId !== null}>
+                  <GitBranch size={16} /> Branch from this move
+                </button>
+                <span>{isUntitledVariation ? "Save this line before branching." : "Select any move below to choose a different position."}</span>
+                {visibleMoveCount < sanMoves.length && <button type="button" className="trim-continuation-button" onClick={requestTrimContinuation} disabled={isSavingLine || pendingNodeCount > 0}>Remove following moves</button>}
+                {visibleMoveCount < sanMoves.length && pendingNodeCount > 0 && <span>Save or cancel your unsaved moves before removing a continuation.</span>}
+                {removalUndo && removalUndo.openingId === activeOpeningId && <div className="trim-undo" role="status">Continuation removed.<button type="button" disabled={isSavingLine} onClick={undoTrimContinuation}>Undo removal</button></div>}
+              </div>}
             </div>
             <div className="flex-1 overflow-y-auto px-2 py-2">
               {lineError && (
@@ -1311,11 +1391,11 @@ export default function DashboardPage() {
                     className="group/move grid grid-cols-[28px_1fr_1fr] items-center gap-2 rounded-md px-2 py-1.5 text-sm hover:bg-white/5"
                   >
                     <span className="text-muted">{move.no}.</span>
-                    <div className="flex min-w-0 items-center gap-0.5">
-                      <span className="truncate text-ink">{move.white}</span>
+                    <div className="min-w-0">
+                      {move.whiteIndex !== undefined && <button type="button" className="history-move" aria-label={`View after ${move.no}. ${move.white}`} aria-pressed={visibleMoveCount === move.whiteIndex + 1} onClick={() => handleSelectMove(move.whiteIndex! + 1)}>{move.white}</button>}
                     </div>
-                    <div className="flex min-w-0 items-center gap-0.5">
-                      <span className="truncate text-secondary">{move.black ?? ""}</span>
+                    <div className="min-w-0">
+                      {move.blackIndex !== undefined && <button type="button" className="history-move" aria-label={`View after ${move.no}... ${move.black}`} aria-pressed={visibleMoveCount === move.blackIndex + 1} onClick={() => handleSelectMove(move.blackIndex! + 1)}>{move.black}</button>}
                     </div>
                   </div>
                 ))
@@ -1392,6 +1472,8 @@ export default function DashboardPage() {
         </div>
       </div>
 
+      {trimPlan && <TrimContinuationDialog count={trimPlan.removed.length} variationNames={trimPlan.removed.flatMap(node => node.variation_name ? [node.variation_name] : [])} label={trimPlan.label} busy={isSavingLine} error={trimError} onCancel={() => setTrimPlan(null)} onConfirm={() => void confirmTrimContinuation()} />}
+
       {isPgnImportOpen && <PgnImportModal onClose={() => setIsPgnImportOpen(false)} onImported={handleImportedOpenings} />}
 
       {isNewOpeningOpen && (
@@ -1460,6 +1542,8 @@ export default function DashboardPage() {
       {isBranchModalOpen && activeOpeningId && (
         <BranchModal
           openingName={activeOpening}
+          sourceLineName={activeVariationName ?? "Main line"}
+          boardOrientation={orientation}
           initialPosition={branchInitialPosition}
           parentNodeId={branchParentNodeId}
           branchContextLabel={branchContextLabel}
