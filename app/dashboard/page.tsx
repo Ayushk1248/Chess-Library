@@ -146,7 +146,6 @@ export default function DashboardPage() {
   const [deleteOpeningError, setDeleteOpeningError] = useState("");
   const [activeOpening, setActiveOpening] = useState("");
   const [activeOpeningId, setActiveOpeningId] = useState<string | null>(null);
-  const [openingName, setOpeningName] = useState("");
   const [orientation, setOrientation] = useState<"white" | "black">("white");
   const [isNewOpeningOpen, setIsNewOpeningOpen] = useState(false);
   const [isSettingsOpen, setIsSettingsOpen] = useState(false);
@@ -581,7 +580,7 @@ export default function DashboardPage() {
       setOpenings((current) => [data, ...current.filter((opening) => opening.id !== data.id)]);
       setActiveOpening(data.name);
       setActiveOpeningId(data.id);
-      setOpeningName(data.name);
+
       setExpandedOpeningId(data.id);
       setNewOpeningName("");
       setIsNewOpeningOpen(false);
@@ -648,7 +647,7 @@ export default function DashboardPage() {
       setActiveVariationName(null);
       setActiveOpening(opening.name);
       setActiveOpeningId(opening.id);
-      setOpeningName(opening.name);
+
       setExpandedOpeningId(opening.id);
     } catch (error) {
       setLineError(error instanceof Error ? error.message : "Could not load this opening.");
@@ -732,7 +731,7 @@ export default function DashboardPage() {
       setIsVariationLine(false);
       setActiveOpening(opening.name);
       setActiveOpeningId(opening.id);
-      setOpeningName(opening.name);
+
       setActiveVariationName(root.variation_name);
       setExpandedOpeningId(opening.id);
     } catch (error) {
@@ -786,7 +785,7 @@ export default function DashboardPage() {
         setActiveOpening("");
         setActiveOpeningId(null);
         setExpandedOpeningId(null);
-        setOpeningName("");
+
         setLineError("");
       }
     } catch (error) {
@@ -1213,14 +1212,7 @@ export default function DashboardPage() {
           style={{ backgroundColor: colors.appBg }}
         >
           <button className="library-toggle" aria-label="Toggle library" aria-expanded={libraryOpen} aria-controls="repertoire-library" onClick={() => setLibraryOpen(!libraryOpen)}><Menu size={20} /></button>
-          <input
-            aria-label="Opening name"
-            type="text"
-            value={openingName}
-            onChange={(e) => setOpeningName(e.target.value)}
-            placeholder="Name your opening..."
-            className="opening-title"
-          />
+          <h1 className="opening-title">{activeOpening || "Select an opening"}</h1>
           <div className="study-actions">
             <button
               onClick={handleCancelMove}

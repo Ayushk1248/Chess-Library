@@ -26,8 +26,7 @@
 .library-panel .opacity-0 { opacity: 1; }
 .study-panel { flex: 1; min-width: 0; }
 .study-toolbar { display: flex; align-items: center; gap: 16px; flex-wrap: wrap; padding: 20px 28px; border-bottom: 1px solid var(--color-rule); min-height: 82px; }
-.opening-title { flex: 1; min-width: 130px; width: 100%; background: var(--color-transparent); font-size: 20px; font-weight: 600; }
-.opening-title::placeholder { color: var(--color-muted); }
+.opening-title { flex: 1; min-width: 0; margin: 0; font-size: 20px; font-weight: 600; line-height: 1.3; overflow-wrap: anywhere; }
 .study-actions { display: flex; flex-wrap: wrap; gap: 8px; }
 .study-actions button { min-height: 40px; }
 .study-stage { display: grid; grid-template-columns: minmax(0, 1fr) minmax(240px, 300px); align-items: start; gap: 24px; max-width: 1220px; margin: auto; padding: 40px 28px; }
@@ -124,7 +123,6 @@
 @media (max-width: 959px) { .library-backdrop { display: block; position: fixed; inset: 0; z-index: 39; background: var(--color-overlay); border: 0; border-radius: 0; } }
 
 button.bg-error { color: var(--color-on-accent); }
-.opening-title { border-bottom: 1px solid var(--color-muted); padding: 4px 0; border-radius: 0; }
 .auth-card input, [role="dialog"] input { border-color: var(--color-muted); }
 .study-actions button { white-space: nowrap; }
 @media (max-width: 420px) {
